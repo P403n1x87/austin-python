@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import asyncio
+import subprocess
 import sys
 from typing import List
 
@@ -29,17 +29,15 @@ from austin import AustinError, BaseAustin
 from austin.cli import AustinArgumentParser
 
 
-class AsyncAustin(BaseAustin):
-    """Asynchronous implementation of Austin.
+class SimpleAustin(BaseAustin):
+    """Simple implementation of Austin.
 
-    Implements an ``asyncio`` API for Austin so that it can be used alongside
-    other asynchronous tasks.
-
-    The following example shows how to make a simple asynchronous echo
-    implementation of Austin that behaves exactly just like Austin.
+    This is the simplest way to start Austin from Python if you do not need to
+    carry out other operation in parallel. Calling :func`start` returns only
+    once Austin has terminated.
 
     Example:
-        class EchoAsyncAustin(AsyncAustin):
+        class EchoSimpleAustin(SimpleAustin):
             def on_ready(self, process, child_process, command_line):
                 print(f"Austin PID: {process.pid}")
                 print(f"Python PID: {child_process.pid}")
@@ -51,61 +49,43 @@ class AsyncAustin(BaseAustin):
             def on_terminate(self, data):
                 print(data)
 
-        if sys.platform == "win32":
-            asyncio.set_event_loop(asyncio.ProactorEventLoop())
-
         try:
-            austin = EchoAsyncAustin()
-            asyncio.get_event_loop().run_until_complete(
-                austin.start(["-i", "10000", "python3", "test/target34.py"])
-            )
-        except (KeyboardInterrupt, asyncio.CancelledError):
+            austin = EchoSimpleAustin()
+            austin.start(["-i", "10000"], ["python3", "test/target34.py"])
+        except KeyboardInterrupt:
             pass
     """
 
-    async def start(self, args: List[str] = []) -> None:
+    def start(self, args: List[str] = None) -> None:
         try:
-            self.proc = await asyncio.create_subprocess_exec(
-                self.BINARY,
-                *(args or sys.argv[1:]),
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            self.proc = subprocess.Popen(
+                [self.BINARY] + (args or sys.argv[1:]),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             )
         except FileNotFoundError:
             raise AustinError("Austin executable not found.")
 
-        self._running = True
-
         try:
-            data = await self.proc.stdout.readline()
-            if data:
-                # Austin started correctly
+            line = self.proc.stdout.readline()
+            if line:
                 self._ready_callback(
                     *self._get_process_info(
                         AustinArgumentParser().parse_args(args), self.proc.pid
                     )
                 )
 
-            # Start readline loop
-            while data:
-                self._sample_callback(data.decode("ascii").rstrip())
-                data = await self.proc.stdout.readline()
+            self._running = True
+
+            while line:
+                self._sample_callback(line.decode("ascii").rstrip())
+                line = self.proc.stdout.readline()
 
         finally:
-            # Wait for the subprocess to terminate
+            self.proc.wait()
             self._running = False
 
-            try:
-                stderr = (
-                    (await asyncio.wait_for(self.proc.stderr.read(), 0.1))
-                    .decode()
-                    .rstrip()
-                )
-            except asyncio.TimeoutError:
-                stderr = ""
+            stderr = (self.proc.stderr.read()).decode().rstrip()
             self._terminate_callback(stderr)
-
-            rcode = await self.proc.wait()
-            if rcode:
-                raise AustinError(f"({rcode}) {stderr}")
+            if self.proc.returncode:
+                raise AustinError(f"({self.proc.returncode}) {stderr}")

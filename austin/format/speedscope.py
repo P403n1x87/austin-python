@@ -22,115 +22,126 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+from enum import Enum
+from typing import Any, Dict, Iterator, List, Tuple
 
-from austin.stats import parse_line
+from austin.stats import InvalidSample, Sample
+from dataclasses import asdict, dataclass, field
+
+SpeedscopeJson = Dict
+SpeedscopeWeight = int
+ProfileName = str
 
 
-def _generate_profiles(source: any):
+class Units(Enum):
+    MICROSECONDS = "μs"
+    BYTES = "bytes"
+
+
+@dataclass(frozen=True)
+class SpeedscopeFrame:
+    name: str
+    file: str
+    line: int
+
+
+@dataclass
+class SpeedscopeProfile:
+    name: ProfileName
+    unit: Units
+    startValue: int = 0
+    endValue: int = 0
+    samples: List[Any] = field(default_factory=list)
+    weights: List[SpeedscopeWeight] = field(default_factory=list)
+    type: str = "sampled"
+
+
+def _generate_profiles(
+    source: Iterator[str]
+) -> Tuple[List[SpeedscopeFrame], Dict[ProfileName, SpeedscopeProfile]]:
     shared_frames = []
     frame_index = {}
 
     profiles = {}
 
-    def get_profile(name, unit):
+    def get_profile(name: ProfileName, unit: Units) -> SpeedscopeProfile:
         if name not in profiles:
-            profiles[name] = {
-                "type": "sampled",
-                "name": name,
-                "unit": unit,
-                "startValue": 0,
-                "endValue": 0,
-                "samples": [],
-                "weights": [],
-            }
+            profiles[name] = SpeedscopeProfile(name=name, unit=unit.value)
 
         return profiles[name]
 
-    def add_frames_to_thread_profile(thread_profile, frames, metric):
+    def add_frames_to_thread_profile(
+        thread_profile: SpeedscopeProfile, sample: Sample, metric: SpeedscopeWeight
+    ):
         stack = []
-        for frame in frames:
-            frame_id = f"{frame[0]}@{frame[1]}"
+        for frame in sample.frames:
+            frame_id = str(frame)
             if frame_id not in frame_index:
                 frame_index[frame_id] = len(shared_frames)
-
-                frame_name, frame_file = frame[0].split(maxsplit=1)
-                frame_file = frame_file[1:-1]
-                frame_line = int(frame[1][1:])
                 shared_frames.append(
-                    {"name": frame_name, "file": frame_file, "line": frame_line}
+                    SpeedscopeFrame(frame.function, frame.filename, frame.line)
                 )
 
             stack.append(frame_index[frame_id])
 
-        thread_profile["samples"].append(stack)
-        thread_profile["weights"].append(metric)
-        thread_profile["endValue"] += metric
-
-    # Assume full metrics
-    line = next(source)
-    full = True
-    try:
-        parse_line(line, True)
-    except ValueError as e:
-        full = False
+        thread_profile.samples.append(stack)
+        thread_profile.weights.append(metric)
+        thread_profile.endValue += metric
 
     for line in source:
-        if b"Bad sample" in line:
+        try:
+            sample = Sample.parse(line)
+        except InvalidSample:
             continue
 
-        process, thread, frames, metrics = parse_line(line, full)
-
-        frames = [(frames[2 * i], frames[2 * i + 1]) for i in range(len(frames) >> 1)]
-        if process:
-            thread = f"Thread {process.split()[1]}:{thread.split()[1]}"
+        thread = f"Thread {sample.pid}:{sample.thread.split()[1]}"
 
         add_frames_to_thread_profile(
-            get_profile(f"Time profile of {thread}", "microseconds"), frames, metrics[0]
+            get_profile(f"Time profile of {thread}", Units.MICROSECONDS),
+            sample,
+            sample.metrics.time,
         )
 
-        if full:
+        if sample.metrics.memory_alloc:
             add_frames_to_thread_profile(
-                get_profile(f"Memory allocation profile of {thread}", "bytes"),
-                frames,
-                metrics[1] << 10,
+                get_profile(f"Memory allocation profile of {thread}", Units.BYTES),
+                sample,
+                sample.metrics.memory_alloc << 10,
             )
 
+        if sample.metrics.memory_dealloc:
             add_frames_to_thread_profile(
-                get_profile(f"Memory release profile of {thread}", "bytes"),
-                frames,
-                (-metrics[2]) << 10,
+                get_profile(f"Memory release profile of {thread}", Units.BYTES),
+                sample,
+                sample.metrics.memory_dealloc << 10,
             )
 
     return shared_frames, profiles
 
 
-def _generate_json(frames, profiles, name):
+def _generate_json(
+    frames: List[SpeedscopeFrame],
+    profiles: Dict[ProfileName, SpeedscopeProfile],
+    name: str,
+) -> SpeedscopeJson:
     return {
         "$schema": "https://www.speedscope.app/file-format-schema.json",
-        "shared": {"frames": frames},
+        "shared": {"frames": [asdict(frame) for frame in frames]},
         "profiles": sorted(
-            [profile for _, profile in profiles.items()],
-            key=lambda profile: profile["name"].rsplit(maxsplit=1)[-1],
+            [asdict(profile) for _, profile in profiles.items()],
+            key=lambda p: p["name"].rsplit(maxsplit=1)[-1],
         ),
         "name": name,
-        "exporter": "Austin2Speedscope Converter 0.1.0",
+        "exporter": "Austin2Speedscope Converter 0.2.0",
     }
 
 
-def to_speedscope(source: any, name: str):
+def to_speedscope(source: Iterator[str], name: str) -> SpeedscopeJson:
     """Convert a list of collapsed samples to the speedscope JSON format.
 
     The result is a Python ``dict`` that complies with the Speedscope JSON
     schema and that can be exported to a JSON file with a straight call to
     ``json.dump``.
-
-    Args:
-        source (any): Any object that behaves like a generator of strings, e.g.
-            an open file.
-
-        name ()
-
-        full (bool): Whether to treat each line as having a full set of metrics.
 
     Returns:
         (dict): a dictionary that complies with the speedscope JSON schema.
@@ -138,8 +149,8 @@ def to_speedscope(source: any, name: str):
     return _generate_json(*_generate_profiles(source), name)
 
 
-def main():
-    import os, sys
+def main() -> None:
+    import os
     from argparse import ArgumentParser
 
     arg_parser = ArgumentParser(
@@ -168,7 +179,7 @@ def main():
     args = arg_parser.parse_args()
 
     try:
-        with open(args.input, "rb") as fin:
+        with open(args.input, "r") as fin:
             json.dump(
                 to_speedscope(fin, os.path.basename(args.input)),
                 open(args.output, "w"),

@@ -21,36 +21,52 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from argparse import ArgumentParser
+from argparse import REMAINDER, ArgumentParser, Namespace
+from typing import Any, List
 
 from austin import AustinError
 
 
 class AustinCommandLineError(AustinError):
+    """Invalid Austin command line."""
+
     pass
 
 
 class AustinArgumentParser(ArgumentParser):
+    """Austin Command Line parser.
+
+    This command line parser is based on :class`argparse.ArgumentParser` and
+    provides a minimal implementation for parsing the standard Austin command
+    line. The boolean arguments of the constructor are used to specify whether
+    the corresponding Austin option should be parsed or not. For example, if
+    your application doesn't need the possiblity of switching to the
+    alternative format, you can exclude this option with ``alt_format=False``.
+
+    Note that al least one between ``pid`` and ``command`` is required, but
+    they cannot be used together when invoking Austin.
+    """
+
     def __init__(
         self,
-        name="austin",
-        alt_format=True,
-        children=True,
-        exclude_empty=True,
-        full=True,
-        interval=True,
-        memory=True,
-        pid=True,
-        sleepless=True,
-        timeout=True,
-        command=True,
-        **kwargs,
+        name: str = "austin",
+        alt_format: bool = True,
+        children: bool = True,
+        exclude_empty: bool = True,
+        full: bool = True,
+        interval: bool = True,
+        memory: bool = True,
+        pid: bool = True,
+        sleepless: bool = True,
+        timeout: bool = True,
+        command: bool = True,
+        **kwargs: Any,
     ):
         super().__init__(prog=name, **kwargs)
 
-        if bool(pid) != bool(command):
+        if not (pid and command):
             raise AustinCommandLineError(
-                "Austin command line parser must have either pid or command."
+                "Austin command line parser must have at least one between pid and command."
             )
 
         if alt_format:
@@ -122,24 +138,41 @@ class AustinArgumentParser(ArgumentParser):
         if command:
             self.add_argument(
                 "command",
-                nargs="?",
+                type=str,
+                nargs=REMAINDER,
                 help="The command to execute if no PID is provided, followed by its arguments.",
             )
 
-            self.add_argument(
-                "args", nargs="*", help="Arguments to pass to the command to run."
+    def parse_args(self, args: List[str] = None) -> Namespace:
+        """Parse the list of arguments.
+
+        Return a :class`argparse.Namespace` with the parsed result. If no PID
+        nor a command are passed, an instance of the
+        :class`AustinCommandLineError` exception is thrown.
+        """
+        parsed_austin_args, unparsed = super().parse_known_args(args)
+        if unparsed:
+            raise AustinCommandLineError(
+                f"Some arguments were left unparsed: {unparsed}"
             )
 
-    def parse_args(self, args):
-        parsed_args = super().parse_args(args)
-
-        if not parsed_args.pid and not parsed_args.command:
+        if not parsed_austin_args.pid and not parsed_austin_args.command:
             raise AustinCommandLineError("No PID or command given.")
 
-        return parsed_args
+        return parsed_austin_args
+
+    def exit(self, status: int = 0, message: str = None) -> None:
+        raise AustinCommandLineError(message, status)
 
     @staticmethod
-    def to_list(args):
+    def to_list(args: Namespace) -> List[str]:
+        """Convert a :class`argparse.Namespace` to a list of arguments.
+
+        This is the opposite of the parsing of the command line. This static
+        method is intended to filter and reconstruct the command line arguments
+        that need to be passed to lower level APIs to start the actual Austin
+        process.
+        """
         arg_list = []
         if getattr(args, "alt_format", None):
             arg_list.append("-a")
@@ -161,7 +194,5 @@ class AustinArgumentParser(ArgumentParser):
             arg_list += ["-t", str(args.timeout)]
         if getattr(args, "command", None):
             arg_list.append(args.command)
-        if getattr(args, "args", None):
-            arg_list += args.args
 
         return arg_list

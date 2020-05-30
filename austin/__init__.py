@@ -22,90 +22,155 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from abc import ABC, abstractmethod
+import argparse
+from typing import Any, Callable, List, Tuple
 
 import psutil
+import signal
 
 
 class AustinError(Exception):
+    """Basic Austin Error."""
+
     pass
 
 
 class BaseAustin(ABC):
-    def __init__(self, sample_callback=None):
-        self._loop = None
-        self._pid = -1
-        self._cmd_line = "<unknown>"
+    """Base Austin class.
+
+    Defines the general API that abstract Austin as an external process.
+    Subclasses should implement the :func`start` method and either define the
+    :func`on_sample_received` method or pass it via the constructor.
+    Additionally, the :func`on_ready` and the :func`on_terminate` methods can
+    be overridden or passed via the constructor to catch the corresponding
+    events. Austin is considered to be ready when the first sample is received;
+    it is considered to have terminated when the process has terminated
+    gracefully.
+
+    If an error was encountered, the :class`AustinError` exception is thrown.
+    """
+
+    BINARY = "austin"
+
+    def __init__(
+        self,
+        sample_callback: Callable[[str], None] = None,
+        ready_callback: Callable[[psutil.Process, psutil.Process, str], None] = None,
+        terminate_callback: Callable[[str], None] = None,
+    ):
+        self._proc = None
+        self._child_proc = None
+        self._cmd_line = None
         self._running = False
 
         try:
-            self._callback = (
-                sample_callback if sample_callback else self.on_sample_received
-            )
+            self._sample_callback = sample_callback or self.on_sample_received
         except AttributeError as e:
-            raise RuntimeError("No sample callback given or implemented.") from e
+            raise AustinError("No sample callback given or implemented.") from e
 
-    def post_process_start(self):
-        if not self._pid or self._pid < 0:  # Austin is forking
-            austin_process = psutil.Process(self.proc.pid)
-            while not austin_process.children():
-                pass
-            child_process = austin_process.children()[0]
-            if child_process.pid is not None:
-                self._pid = child_process.pid
+        self._terminate_callback = terminate_callback or self.on_terminate
+        self._ready_callback = ready_callback or self.on_ready
+
+    def _get_process_info(
+        self, args: argparse.Namespace, austin_pid: int
+    ) -> Tuple[psutil.Process, psutil.Process, str]:
+        if not args.pid:  # Austin is forking
+            try:
+                self._proc = psutil.Process(austin_pid)
+            except psutil.NoSuchProcess:
+                raise AustinError("Cannot find Austin process.")
+
+            try:
+                self._child_proc = self._proc.children()[0]
+                if self._child_proc is None:
+                    raise IndexError
+            except IndexError:
+                raise AustinError("Cannot find Austin child process.")
         else:  # Austin is attaching
             try:
-                child_process = psutil.Process(self._pid)
+                self._child_proc = psutil.Process(args.pid)
             except psutil.NoSuchProcess:
                 raise AustinError(
-                    f"Cannot attach to process with PID {self._pid} because it does not seem to exist."
+                    f"Cannot attach to process with invalid PID {args.pid}."
                 )
 
-        self._child = child_process
-        self._cmd_line = " ".join(child_process.cmdline())
+        self._cmd_line = " ".join(self._child_proc.cmdline())
+
+        return self._proc, self._child_proc, self._cmd_line
 
     @abstractmethod
-    def start(self, args):
+    def start(self, args: List[str] = None) -> None:
+        """Start Austin.
+
+        Every subclass should implement this method and ensure that it spawns
+        a new Austin process.
+        """
         ...
 
-    def get_pid(self):
-        return self._pid
+    def get_process(self) -> psutil.Process:
+        """Get the underlying Austin process.
 
-    def get_cmd_line(self):
+        Return an instance of :class`psuitl.Process` that can be used to
+        control the underlying Austin process at the OS level.
+        """
+        return self._proc
+
+    def get_command_line(self) -> str:
+        """Get the inferred command line.
+
+        Return the command line of the (main) process that is being profiled
+        by Austin.
+        """
         return self._cmd_line
 
-    def is_running(self):
+    def is_running(self) -> bool:
+        """Determine whether Austin is running."""
         return self._running
 
-    def get_child(self):
-        return self._child
+    def terminate(self, force: bool = True) -> None:
+        """Terminate Austin.
 
-    @abstractmethod
-    def wait(self, timeout=1):
-        ...
+        Stop the underlying Austin process by sending a termination signal.
+        """
+        if not self.proc:
+            raise AustinError("Cannot terminate Austin because it is not running!")
 
+        self.proc.send_signal(signal.SIGINT)
+        self._running = False
+        self._proc = None
+        self._child_proc = None
 
-# ---- TEST ----
+    def get_child_process(self) -> psutil.Process:
+        """Get the child process.
 
-if __name__ == "__main__":
+        Return an instalce of :class`psutil.Process` representing the (main)
+        process being profiled by Austin at the OS level.
+        """
+        return self._child_proc
 
-    class MyAsyncAustin(AsyncAustin):
-        def on_sample_received(self, line):
-            print(line)
+    # ---- Default callbacks ----
 
-    try:
-        austin = MyAsyncAustin()
-        austin.start(["-i", "10000", "python3", "test/target34.py"])
-        austin.join()
-    except KeyboardInterrupt:
-        print("Bye!")
+    def on_terminate(self, stats: str) -> Any:
+        """Terminate event callback.
 
-    class MyThreadedAustin(ThreadedAustin):
-        def on_sample_received(self, line):
-            print(line)
+        Implement to be notified when Austin has terminated gracefully. The
+        callback accepts an argument that will receive the global statistics.
+        """
+        pass
 
-    try:
-        austin = MyThreadedAustin()
-        austin.start(["-i", "10000", "python3", "test/target34.py"])
-        austin.join()
-    except KeyboardInterrupt:
-        print("Bye!")
+    def on_ready(
+        self,
+        process: psutil.Process,
+        child_process: psutil.Process,
+        command_line: str,
+        data: Any = None,
+    ) -> Any:
+        """Ready event callback.
+
+        Implement to get notified when Austin has successfully started or
+        attached the Python process to profile and the first sample has been
+        produced. This callback receives the Austin process and it's (main)
+        profiled process as instances of :class`psutil.Process`, along with
+        the command line of the latter.
+        """
+        pass

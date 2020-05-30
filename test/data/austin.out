@@ -1,0 +1,83 @@
+Thread 7fdf1d34b740 0
+Bad sample 100
+Thread 7fdf1d34b740;_find_and_load (<frozen importlib._bootstrap>);L971;_find_and_load_unlocked (<frozen importlib._bootstrap>);L955;_load_unlocked (<frozen importlib._bootstrap>);L665;exec_module (<frozen importlib._bootstrap_external>);L678;_call_with_frames_removed (<frozen importlib._bootstrap>);L219;<module> (/usr/lib/python3.6/site.py);L79;_find_and_load (<frozen importlib._bootstrap>);L971;_find_and_load_unlocked (<frozen importlib._bootstrap>);L955;_load_unlocked (<frozen importlib._bootstrap>);L665;exec_module (<frozen importlib._bootstrap_external>);L678;_call_with_frames_removed (<frozen importlib._bootstrap>);L219;<module> (/usr/lib/python3.6/os.py);L652;_find_and_load (<frozen importlib._bootstrap>);L971;_find_and_load_unlocked (<frozen importlib._bootstrap>);L955;_load_unlocked (<frozen importlib._bootstrap>);L665;exec_module (<frozen importlib._bootstrap_external>);L678;_call_with_frames_removed (<frozen importlib._bootstrap>);L219;<module> (/usr/lib/python3.6/_collections_abc.py);L725 10092
+Thread 7fdf1d34b740;_find_and_load (<frozen importlib._bootstrap>);L971;_find_and_load_unlocked (<frozen importlib._bootstrap>);L955;_load_unlocked (<frozen importlib._bootstrap>);L665;exec_module (<frozen importlib._bootstrap_external>);L678;_call_with_frames_removed (<frozen importlib._bootstrap>);L219;<module> (/usr/lib/python3.6/site.py);L570;main (/usr/lib/python3.6/site.py);L557;addsitepackages (/usr/lib/python3.6/site.py);L345;addsitedir (/usr/lib/python3.6/site.py);L213;addpackage (/usr/lib/python3.6/site.py);L174;<module> (<string>);L1;_find_and_load (<frozen importlib._bootstrap>);L971;_find_and_load_unlocked (<frozen importlib._bootstrap>);L955;_load_unlocked (<frozen importlib._bootstrap>);L665;exec_module (<frozen importlib._bootstrap_external>);L678;_call_with_frames_removed (<frozen importlib._bootstrap>);L219;<module> (/usr/lib/python3.6/types.py);L171;_find_and_load (<frozen importlib._bootstrap>);L971;_find_and_load_unlocked (<frozen importlib._bootstrap>);L955;_load_unlocked (<frozen importlib._bootstrap>);L665;exec_module (<frozen importlib._bootstrap_external>);L678;_call_with_frames_removed (<frozen importlib._bootstrap>);L219;<module> (/usr/lib/python3.6/functools.py);L21;_find_and_load (<frozen importlib._bootstrap>);L971;_find_and_load_unlocked (<frozen importlib._bootstrap>);L955;_load_unlocked (<frozen importlib._bootstrap>);L665;exec_module (<frozen importlib._bootstrap_external>);L678;_call_with_frames_removed (<frozen importlib._bootstrap>);L219;<module> (/usr/lib/python3.6/collections/__init__.py);L62;__new__ (/usr/lib/python3.6/abc.py);L136 10102
+Thread 7fdf1d34b740;_find_and_load (<frozen importlib._bootstrap>);L971;_find_and_load_unlocked (<frozen importlib._bootstrap>);L955;_load_unlocked (<frozen importlib._bootstrap>);L665;exec_module (<frozen importlib._bootstrap_external>);L678;_call_with_frames_removed (<frozen importlib._bootstrap>);L219;<module> (/usr/lib/python3.6/site.py);L570;main (/usr/lib/python3.6/site.py);L557;addsitepackages (/usr/lib/python3.6/site.py);L345;addsitedir (/usr/lib/python3.6/site.py);L213;addpackage (/usr/lib/python3.6/site.py);L174;<module> (<string>);L1;find_spec (<frozen importlib._bootstrap_external>);L1157;_get_spec (<frozen importlib._bootstrap_external>);L1129;find_spec (<frozen importlib._bootstrap_external>);L1245;_fill_cache (<frozen importlib._bootstrap_external>);L1285 10088
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10092
+Thread 7fdf1d34b740;<module> (test/target34.py);L37;start (/usr/lib/python3.6/threading.py);L851;wait (/usr/lib/python3.6/threading.py);L551;wait (/usr/lib/python3.6/threading.py);L295 10092
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10091
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L30 10091
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10085
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10085
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10088
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10088
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10090
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10090
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L33 10086
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L30 10086
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L30 10093
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10093
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10091
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10091
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L33 10093
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10093
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10084
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10084
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L30 10091
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10091
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10090
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10090
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10090
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10090
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10090
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10090
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10090
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10090
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10062
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10062
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10061
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10061
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L33 10087
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10087
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L30 10091
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10091
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10090
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10090
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10060
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10060
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L33 10091
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L30 10091
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10083
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10083
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L33 10092
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10092
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L33 10090
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10090
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10095
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10095
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L33 10087
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10087
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L30 10058
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L33 10058
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L33 10088
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10088
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10095
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L30 10095
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10094
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10094
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10091
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10091
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L32 10087
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10087
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10089
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10089
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L31 10085
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L32 10085
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864;keep_cpu_busy (test/target34.py);L30 10084
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10084
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864 10093
+Thread 7fdf1d34b740;<module> (test/target34.py);L38;keep_cpu_busy (test/target34.py);L31 10093
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864 10060
+Thread 7fdf1d34b740;<module> (test/target34.py);L38 10060
+Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;run (/usr/lib/python3.6/threading.py);L864 10087
+Thread 7fdf1d34b740;<module> (test/target34.py);L38 10087

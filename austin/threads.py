@@ -21,67 +21,69 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import subprocess
-from threading import Event, Thread
+from threading import Thread
+from typing import Any, List
 
-import psutil
-
-from austin import AustinError, BaseAustin
+from austin.simple import SimpleAustin
 
 
-class ThreadedAustin(BaseAustin, Thread):
-    def __init__(self, *args, **kwargs):
+class ThreadedAustin(SimpleAustin):
+    """Thread-based implementation of Austin.
+
+    Implements a ``threading`` API for Austin so that it can be used alongside
+    other threads.
+
+    The following example shows how to make a simple threaded echo
+    implementation of Austin that behaves exactly just like Austin.
+
+    Example:
+        class EchoThreadedAustin(ThreadedAustin):
+            def on_ready(self, process, child_process, command_line):
+                print(f"Austin PID: {process.pid}")
+                print(f"Python PID: {child_process.pid}")
+                print(f"Command Line: {command_line}")
+
+            def on_sample_received(self, line):
+                print(line)
+
+            def on_terminate(self, data):
+                print(data)
+
+        try:
+            austin = EchoThreadedAustin()
+            austin.start(["-i", "10000", "python3", "test/target34.py"])
+            austin.join()
+        except KeyboardInterrupt:
+            pass
+    """
+
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
-        Thread.__init__(self)
 
-        self.start_event = Event()
+        self._thread = None
 
-    def run(self):
-        self.start_event.set()
-        self._running = True
+    def start(self, args: List[str] = None) -> None:
+        self._thread = Thread(target=super().start, args=(args,))
+        self._thread.start()
 
-        while True:
-            line = self.proc.stdout.readline()
-            if not line:
-                break
-            self._callback(line.decode("ascii").rstrip())
+    def get_thread(self) -> Thread:
+        """Get the underlying :class`threading.Thread` instance.
 
-        self.proc.wait()
-        self._running = False
+        As this leaks a bit of the implementation, interaction with the
+        returned thread object should be done with care.
 
-    def start(self, args):
-        try:
-            self._pid = args.pid
-        except AttributeError:
-            self._pid = -1
+        **Note**
+            This is an extension of the base Austin abstract class.
+        """
+        return self._thread
 
-        self.proc = subprocess.Popen(["austin"] + args, stdout=subprocess.PIPE)
+    def join(self, timeout: float = None) -> None:
+        """Join the thread.
 
-        try:
-            self.post_process_start()
-        except psutil.NoSuchProcess as e:
-            raise AustinError("Unable to start Austin.") from e
+        This is the same as calling :func`join` on the underlying thread
+        object.
 
-        Thread.start(self)
-
-    def wait(self, timeout=1):
-        self.start_event.wait(timeout)
-
-    def join(self):
-        self.proc.wait()
-
-
-# ---- TEST ----
-
-if __name__ == "__main__":
-
-    class MyThreadedAustin(ThreadedAustin):
-        def on_sample_received(self, line):
-            print(line)
-
-    try:
-        austin = MyThreadedAustin()
-        austin.start(["-i", "10000", "python3", "test/target34.py"])
-        austin.join()
-    except KeyboardInterrupt:
-        print("Bye!")
+        **Note**
+            This is an extension of the base Austin abstract class.
+        """
+        self._thread.join(timeout)

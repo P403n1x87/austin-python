@@ -23,11 +23,10 @@
 
 import asyncio
 
+from austin import AustinError
+from austin.aio import AsyncAustin
 import pytest
 from pytest import raises
-
-from austin import AustinError
-from austin.async import AsyncAustin
 
 
 class TestAsyncAustin(AsyncAustin):

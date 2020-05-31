@@ -21,12 +21,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import json
+from dataclasses import asdict, dataclass, field
 from enum import Enum
+import json
 from typing import Any, Dict, Iterator, List, Tuple
 
 from austin.stats import InvalidSample, Sample
-from dataclasses import asdict, dataclass, field
 
 SpeedscopeJson = Dict
 SpeedscopeWeight = int
@@ -34,12 +34,16 @@ ProfileName = str
 
 
 class Units(Enum):
+    """Metric units."""
+
     MICROSECONDS = "μs"
     BYTES = "bytes"
 
 
 @dataclass(frozen=True)
 class SpeedscopeFrame:
+    """Speedscope Frame object."""
+
     name: str
     file: str
     line: int
@@ -47,6 +51,8 @@ class SpeedscopeFrame:
 
 @dataclass
 class SpeedscopeProfile:
+    """Speedscope Profile object."""
+
     name: ProfileName
     unit: Units
     startValue: int = 0
@@ -59,7 +65,7 @@ class SpeedscopeProfile:
 def _generate_profiles(
     source: Iterator[str]
 ) -> Tuple[List[SpeedscopeFrame], Dict[ProfileName, SpeedscopeProfile]]:
-    shared_frames = []
+    shared_frames: List[SpeedscopeFrame] = []
     frame_index = {}
 
     profiles = {}
@@ -72,7 +78,7 @@ def _generate_profiles(
 
     def add_frames_to_thread_profile(
         thread_profile: SpeedscopeProfile, sample: Sample, metric: SpeedscopeWeight
-    ):
+    ) -> None:
         stack = []
         for frame in sample.frames:
             frame_id = str(frame)
@@ -150,6 +156,7 @@ def to_speedscope(source: Iterator[str], name: str) -> SpeedscopeJson:
 
 
 def main() -> None:
+    """austin2speedscope entry point."""
     import os
     from argparse import ArgumentParser
 

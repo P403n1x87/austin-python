@@ -22,8 +22,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from threading import Thread
-from typing import Any, List
+from typing import Any, List, Optional
 
+from austin import AustinError
 from austin.simple import SimpleAustin
 
 
@@ -36,7 +37,8 @@ class ThreadedAustin(SimpleAustin):
     The following example shows how to make a simple threaded echo
     implementation of Austin that behaves exactly just like Austin.
 
-    Example:
+    Example::
+
         class EchoThreadedAustin(ThreadedAustin):
             def on_ready(self, process, child_process, command_line):
                 print(f"Austin PID: {process.pid}")
@@ -51,23 +53,24 @@ class ThreadedAustin(SimpleAustin):
 
         try:
             austin = EchoThreadedAustin()
-            austin.start(["-i", "10000", "python3", "test/target34.py"])
+            austin.start(["-i", "10000", "python3", "myscript.py"])
             austin.join()
         except KeyboardInterrupt:
             pass
     """
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self._thread = None
+        self._thread: Optional[Thread] = None
 
     def start(self, args: List[str] = None) -> None:
+        """Start the Austin thread."""
         self._thread = Thread(target=super().start, args=(args,))
         self._thread.start()
 
-    def get_thread(self) -> Thread:
-        """Get the underlying :class`threading.Thread` instance.
+    def get_thread(self) -> Optional[Thread]:
+        """Get the underlying :class:`threading.Thread` instance.
 
         As this leaks a bit of the implementation, interaction with the
         returned thread object should be done with care.
@@ -80,10 +83,12 @@ class ThreadedAustin(SimpleAustin):
     def join(self, timeout: float = None) -> None:
         """Join the thread.
 
-        This is the same as calling :func`join` on the underlying thread
+        This is the same as calling :func:`join` on the underlying thread
         object.
 
         **Note**
             This is an extension of the base Austin abstract class.
         """
+        if self._thread is None:
+            raise AustinError("The Austin thread has not been started yet")
         self._thread.join(timeout)

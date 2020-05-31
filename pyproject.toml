@@ -30,7 +30,7 @@ authors = ["Gabriele N. Tornetta <phoenix1987@gmail.com>"]
 readme = "README.md"
 homepage = "https://github.com/P403n1x87/austin-python"
 repository = "https://github.com/P403n1x87/austin-python"
-documentation = "https://p403n1x87.github.io/austin-python"
+documentation = "https://austin-python.readthedocs.io"
 keywords = ["performance", "profiling", "testing", "development"]
 classifiers = [
   "Development Status :: 4 - Beta",
@@ -54,6 +54,13 @@ coverage = {extras = ["toml"], version = "*"}
 pytest = ">=5.4.2"
 pytest-cov = ">=2.8.1"
 sphinx = "^3.0.4"
+sphinx-autodoc-typehints = "^1.10.3"
+nox = "^2020.5.24"
+mypy = "^0.770"
+codecov = "^2.1.3"
+
+[tool.poetry.urls]
+issues = "https://github.com/P403n1x87/austin-python/issues"
 
 [tool.coverage.run]
 branch = true

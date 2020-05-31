@@ -38,7 +38,8 @@ class AsyncAustin(BaseAustin):
     The following example shows how to make a simple asynchronous echo
     implementation of Austin that behaves exactly just like Austin.
 
-    Example:
+    Example::
+
         class EchoAsyncAustin(AsyncAustin):
             def on_ready(self, process, child_process, command_line):
                 print(f"Austin PID: {process.pid}")
@@ -57,13 +58,17 @@ class AsyncAustin(BaseAustin):
         try:
             austin = EchoAsyncAustin()
             asyncio.get_event_loop().run_until_complete(
-                austin.start(["-i", "10000", "python3", "test/target34.py"])
+                austin.start(["-i", "10000", "python3", "myscript.py"])
             )
         except (KeyboardInterrupt, asyncio.CancelledError):
             pass
     """
 
-    async def start(self, args: List[str] = []) -> None:
+    async def start(self, args: List[str] = None) -> None:
+        """Create the start coroutine.
+
+        Use with the ``asyncio`` event loop.
+        """
         try:
             self.proc = await asyncio.create_subprocess_exec(
                 self.BINARY,
@@ -74,6 +79,9 @@ class AsyncAustin(BaseAustin):
             )
         except FileNotFoundError:
             raise AustinError("Austin executable not found.")
+
+        if not self.proc.stdout:
+            raise AustinError("Standard output stream is unexpectedly missing")
 
         self._running = True
 
@@ -95,6 +103,8 @@ class AsyncAustin(BaseAustin):
         finally:
             # Wait for the subprocess to terminate
             self._running = False
+            if not self.proc.stderr:
+                raise AustinError("Standard error stream is unexpectedly missing")
 
             try:
                 stderr = (

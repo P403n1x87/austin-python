@@ -1,35 +1,29 @@
 <p align="center">
   <br>
-  <img src="art/austin_die_cut_sticker.png" alt="Austin">
+  <img src="docs/source/images/logo.png" alt="Austin">
   <br>
 </p>
 
 <h3 align="center">Python wrapper for Austin, the frame stack sampler for CPython</h3>
 
 <p align="center">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3a/Tux_Mono.svg" height="24px" />
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="https://upload.wikimedia.org/wikipedia/commons/f/fa/Apple_logo_black.svg" height="24px" />
-  &nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="https://upload.wikimedia.org/wikipedia/commons/2/2b/Windows_logo_2012-Black.svg" height="24px" />
-</p>
-
-<p align="center">
-  <a href="https://travis-ci.org/P403n1x87/austin">
-    <img src="https://travis-ci.org/P403n1x87/austin.svg?branch=master"
-         alt="Travis CI Build Status">
+  <a href="https://github.com/P403n1x87/austin-python/actions?workflow=Tests">
+    <img src="https://github.com/P403n1x87/austin-python/workflows/Tests/badge.svg"
+         alt="GitHub Actions: Tests">
   </a>
-  <a href="https://build.snapcraft.io/user/P403n1x87/austin">
-    <img src="https://build.snapcraft.io/badge/P403n1x87/austin.svg"
-         alt="Snap Status">
+  <a href="https://codecov.io/gh/P403n1x87/austin-python">
+    <img src="https://codecov.io/gh/P403n1x87/austin-python/branch/master/graph/badge.svg"
+         alt="Codecov">
   </a>
-  <a href="https://packages.debian.org/unstable/austin">
-    <img src="https://badges.debian.net/badges/debian/unstable/austin/version.svg"
-         alt="Debian package status">
+  <a href="https://pypi.org/project/austin-python/">
+    <img src="https://img.shields.io/pypi/v/austin-python.svg"
+         alt="PyPI">
   </a>
-  <img src="https://img.shields.io/badge/version-1.0.0-blue.svg"
-       alt="Version 1.0.0">
-  <a href="https://github.com/P403n1x87/austin/blob/master/LICENSE.md">
+  <a href="https://austin-python.readthedocs.io/">
+    <img src="https://readthedocs.org/projects/austin-python/badge/"
+         alt="LICENSE">
+  </a>
+  <a href="https://github.com/P403n1x87/austin-python/blob/master/LICENSE.md">
     <img src="https://img.shields.io/badge/license-GPLv3-ff69b4.svg"
          alt="LICENSE">
   </a>
@@ -139,10 +133,3 @@ by [buying me a coffee](https://www.buymeacoffee.com/Q9C1Hnm28) on BMC
 
 or by chipping in a few pennies on
 [PayPal.Me](https://www.paypal.me/gtornetta/1).
-
-
-----
-
-<p align="center">
-<a href="https://twitter.com/AustinSampler">Follow <img src="art/austin_logo.svg" height="20px" /> on <img src="https://upload.wikimedia.org/wikipedia/en/thumb/9/9f/Twitter_bird_logo_2012.svg/1024px-Twitter_bird_logo_2012.svg.png" height="18px" alt="Twitter" /></a>
-</p>

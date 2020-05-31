@@ -21,9 +21,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from pytest import raises
-
 from austin.stats import Frame, InvalidSample, Metrics, Sample
+from pytest import raises
 
 
 def test_sample_alt_format():
@@ -65,7 +64,8 @@ def test_sample_parser_valid():
     )
 
     assert Sample.parse(
-        "Process 123;Thread 0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44"
+        "Process 123;Thread 0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) "
+        "42 43 -44"
     ) == Sample(
         123,
         "Thread 0x7f546684",

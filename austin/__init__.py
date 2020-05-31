@@ -21,12 +21,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
 from abc import ABC, abstractmethod
 import argparse
-from typing import Any, Callable, List, Tuple
+import signal
+from typing import Any, Callable, List, Optional, Tuple
 
 import psutil
-import signal
 
 
 class AustinError(Exception):
@@ -39,15 +40,15 @@ class BaseAustin(ABC):
     """Base Austin class.
 
     Defines the general API that abstract Austin as an external process.
-    Subclasses should implement the :func`start` method and either define the
-    :func`on_sample_received` method or pass it via the constructor.
-    Additionally, the :func`on_ready` and the :func`on_terminate` methods can
+    Subclasses should implement the :func:`start` method and either define the
+    :func:`on_sample_received` method or pass it via the constructor.
+    Additionally, the :func:`on_ready` and the :func:`on_terminate` methods can
     be overridden or passed via the constructor to catch the corresponding
     events. Austin is considered to be ready when the first sample is received;
     it is considered to have terminated when the process has terminated
     gracefully.
 
-    If an error was encountered, the :class`AustinError` exception is thrown.
+    If an error was encountered, the :class:`AustinError` exception is thrown.
     """
 
     BINARY = "austin"
@@ -57,16 +58,21 @@ class BaseAustin(ABC):
         sample_callback: Callable[[str], None] = None,
         ready_callback: Callable[[psutil.Process, psutil.Process, str], None] = None,
         terminate_callback: Callable[[str], None] = None,
-    ):
-        self._proc = None
-        self._child_proc = None
-        self._cmd_line = None
-        self._running = False
+    ) -> None:
+        """The ``BaseAustin`` constructor.
+
+        The callbacks can be passed as arguments, if they are not
+        defined/overridden in the definition of a sub-class.
+        """
+        self._proc: psutil.Process = None
+        self._child_proc: psutil.Process = None
+        self._cmd_line: Optional[str] = None
+        self._running: bool = False
 
         try:
             self._sample_callback = sample_callback or self.on_sample_received
-        except AttributeError as e:
-            raise AustinError("No sample callback given or implemented.") from e
+        except AttributeError:
+            raise AustinError("No sample callback given or implemented.")
 
         self._terminate_callback = terminate_callback or self.on_terminate
         self._ready_callback = ready_callback or self.on_ready
@@ -99,7 +105,7 @@ class BaseAustin(ABC):
         return self._proc, self._child_proc, self._cmd_line
 
     @abstractmethod
-    def start(self, args: List[str] = None) -> None:
+    def start(self, args: List[str] = None) -> Any:
         """Start Austin.
 
         Every subclass should implement this method and ensure that it spawns
@@ -110,12 +116,12 @@ class BaseAustin(ABC):
     def get_process(self) -> psutil.Process:
         """Get the underlying Austin process.
 
-        Return an instance of :class`psuitl.Process` that can be used to
+        Return an instance of :class:`psuitl.Process` that can be used to
         control the underlying Austin process at the OS level.
         """
         return self._proc
 
-    def get_command_line(self) -> str:
+    def get_command_line(self) -> Optional[str]:
         """Get the inferred command line.
 
         Return the command line of the (main) process that is being profiled
@@ -132,10 +138,10 @@ class BaseAustin(ABC):
 
         Stop the underlying Austin process by sending a termination signal.
         """
-        if not self.proc:
+        if not self._proc:
             raise AustinError("Cannot terminate Austin because it is not running!")
 
-        self.proc.send_signal(signal.SIGINT)
+        self._proc.send_signal(signal.SIGINT)
         self._running = False
         self._proc = None
         self._child_proc = None
@@ -143,7 +149,7 @@ class BaseAustin(ABC):
     def get_child_process(self) -> psutil.Process:
         """Get the child process.
 
-        Return an instalce of :class`psutil.Process` representing the (main)
+        Return an instalce of :class:`psutil.Process` representing the (main)
         process being profiled by Austin at the OS level.
         """
         return self._child_proc
@@ -170,7 +176,7 @@ class BaseAustin(ABC):
         Implement to get notified when Austin has successfully started or
         attached the Python process to profile and the first sample has been
         produced. This callback receives the Austin process and it's (main)
-        profiled process as instances of :class`psutil.Process`, along with
+        profiled process as instances of :class:`psutil.Process`, along with
         the command line of the latter.
         """
         pass

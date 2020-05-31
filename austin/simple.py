@@ -33,10 +33,11 @@ class SimpleAustin(BaseAustin):
     """Simple implementation of Austin.
 
     This is the simplest way to start Austin from Python if you do not need to
-    carry out other operation in parallel. Calling :func`start` returns only
+    carry out other operation in parallel. Calling :func:`start` returns only
     once Austin has terminated.
 
-    Example:
+    Example::
+
         class EchoSimpleAustin(SimpleAustin):
             def on_ready(self, process, child_process, command_line):
                 print(f"Austin PID: {process.pid}")
@@ -51,12 +52,13 @@ class SimpleAustin(BaseAustin):
 
         try:
             austin = EchoSimpleAustin()
-            austin.start(["-i", "10000"], ["python3", "test/target34.py"])
+            austin.start(["-i", "10000"], ["python3", "myscript.py"])
         except KeyboardInterrupt:
             pass
     """
 
     def start(self, args: List[str] = None) -> None:
+        """Start the Austin process."""
         try:
             self.proc = subprocess.Popen(
                 [self.BINARY] + (args or sys.argv[1:]),
@@ -66,6 +68,8 @@ class SimpleAustin(BaseAustin):
         except FileNotFoundError:
             raise AustinError("Austin executable not found.")
 
+        if not self.proc.stdout:
+            raise AustinError("Standard output stream is unexpectedly missing")
         try:
             line = self.proc.stdout.readline()
             if line:
@@ -84,6 +88,9 @@ class SimpleAustin(BaseAustin):
         finally:
             self.proc.wait()
             self._running = False
+
+            if not self.proc.stderr:
+                raise AustinError("Standard error stream is unexpectedly missing")
 
             stderr = (self.proc.stderr.read()).decode().rstrip()
             self._terminate_callback(stderr)

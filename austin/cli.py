@@ -21,8 +21,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from argparse import REMAINDER, ArgumentParser, Namespace
-from typing import Any, List
+from argparse import ArgumentParser, Namespace, REMAINDER
+from typing import Any, List, NoReturn
 
 from austin import AustinError
 
@@ -36,7 +36,7 @@ class AustinCommandLineError(AustinError):
 class AustinArgumentParser(ArgumentParser):
     """Austin Command Line parser.
 
-    This command line parser is based on :class`argparse.ArgumentParser` and
+    This command line parser is based on :class:`argparse.ArgumentParser` and
     provides a minimal implementation for parsing the standard Austin command
     line. The boolean arguments of the constructor are used to specify whether
     the corresponding Austin option should be parsed or not. For example, if
@@ -61,12 +61,13 @@ class AustinArgumentParser(ArgumentParser):
         timeout: bool = True,
         command: bool = True,
         **kwargs: Any,
-    ):
+    ) -> None:
         super().__init__(prog=name, **kwargs)
 
         if not (pid and command):
             raise AustinCommandLineError(
-                "Austin command line parser must have at least one between pid and command."
+                "Austin command line parser must have at least one between pid "
+                "and command."
             )
 
         if alt_format:
@@ -131,7 +132,8 @@ class AustinArgumentParser(ArgumentParser):
             self.add_argument(
                 "-t",
                 "--timeout",
-                help="Approximate start up wait time. Increase on slow machines (default is 100ms).",
+                help="Approximate start up wait time. Increase on slow machines "
+                "(default is 100ms).",
                 type=int,
             )
 
@@ -140,17 +142,20 @@ class AustinArgumentParser(ArgumentParser):
                 "command",
                 type=str,
                 nargs=REMAINDER,
-                help="The command to execute if no PID is provided, followed by its arguments.",
+                help="The command to execute if no PID is provided, followed by "
+                "its arguments.",
             )
 
-    def parse_args(self, args: List[str] = None) -> Namespace:
+    def parse_args(
+        self, args: List[str] = None, namespace: Namespace = None
+    ) -> Namespace:
         """Parse the list of arguments.
 
-        Return a :class`argparse.Namespace` with the parsed result. If no PID
+        Return a :class:`argparse.Namespace` with the parsed result. If no PID
         nor a command are passed, an instance of the
-        :class`AustinCommandLineError` exception is thrown.
+        :class:`AustinCommandLineError` exception is thrown.
         """
-        parsed_austin_args, unparsed = super().parse_known_args(args)
+        parsed_austin_args, unparsed = super().parse_known_args(args, namespace)
         if unparsed:
             raise AustinCommandLineError(
                 f"Some arguments were left unparsed: {unparsed}"
@@ -161,12 +166,13 @@ class AustinArgumentParser(ArgumentParser):
 
         return parsed_austin_args
 
-    def exit(self, status: int = 0, message: str = None) -> None:
+    def exit(self, status: int = 0, message: str = None) -> NoReturn:
+        """Raise exception on error."""
         raise AustinCommandLineError(message, status)
 
     @staticmethod
     def to_list(args: Namespace) -> List[str]:
-        """Convert a :class`argparse.Namespace` to a list of arguments.
+        """Convert a :class:`argparse.Namespace` to a list of arguments.
 
         This is the opposite of the parsing of the command line. This static
         method is intended to filter and reconstruct the command line arguments

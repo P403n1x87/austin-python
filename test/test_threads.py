@@ -21,11 +21,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from pytest import raises
-
 from austin import AustinError
 from austin.simple import SimpleAustin
 from austin.threads import ThreadedAustin
+from pytest import raises
 
 
 def check_raises(exc):
@@ -67,7 +66,7 @@ class TestThreadedAustin(ThreadedAustin):
         assert self._ready and self._sample_received and self._terminate
 
 
-class InvalidBinarythreadedAustin(ThreadedAustin):
+class InvalidBinaryThreadedAustin(ThreadedAustin):
     BINARY = "_austin"
 
     @check_raises(AustinError)
@@ -102,12 +101,12 @@ def test_threaded_terminate():
 
 def test_threaded_invalid_binary():
     SimpleAustin.start = check_raises(AustinError)(SimpleAustin.start)
-    InvalidBinarythreadedAustin(sample_callback=lambda x: None).start(["python3"])
+    InvalidBinaryThreadedAustin(sample_callback=lambda x: None).start(["python3"])
 
 
 def test_threaded_no_sample_callback():
     with raises(AustinError):
-        InvalidBinarythreadedAustin()
+        InvalidBinaryThreadedAustin()
 
 
 def test_threaded_bad_options():

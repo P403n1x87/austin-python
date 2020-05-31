@@ -21,10 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from pytest import raises
-
 from austin import AustinError
 from austin.simple import SimpleAustin
+from pytest import raises
 
 
 class TestSimpleAustin(SimpleAustin):

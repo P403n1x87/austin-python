@@ -22,8 +22,7 @@ MYPY_LOCATIONS = LINT_LOCATIONS[:1]
 @nox.session(python=SUPPORTED_PYTHON_VERSIONS)
 def tests(session):
     session.run("poetry", "install", external=True)
-    session.run("python3", "-m", "pytest", *PYTEST_OPTIONS)
-    session.run("codecov")
+    session.run("poetry", "run", "python", "-m", "pytest", *PYTEST_OPTIONS)
 
 
 @nox.session(python=SUPPORTED_PYTHON_VERSIONS)

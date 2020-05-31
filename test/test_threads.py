@@ -53,7 +53,7 @@ class TestThreadedAustin(ThreadedAustin):
         self._ready = True
 
     def on_sample_received(self, line):
-        assert "Thread " in line
+        assert line
         self._sample_received = True
 
     def on_terminate(self, data):

@@ -22,11 +22,17 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import asyncio
+import sys
 
 from austin import AustinError
 from austin.aio import AsyncAustin
 import pytest
 from pytest import raises
+
+
+if sys.platform == 'win32':
+    loop = asyncio.ProactorEventLoop()
+    asyncio.set_event_loop(loop)
 
 
 class TestAsyncAustin(AsyncAustin):
@@ -40,11 +46,11 @@ class TestAsyncAustin(AsyncAustin):
 
     def on_ready(self, process, child_process, command_line):
         assert process.pid != child_process.pid
-        assert "python3" in self.get_command_line()
+        assert "python" in self.get_command_line()
         self._ready = True
 
     def on_sample_received(self, line):
-        assert "Thread " in line
+        assert line
         self._sample_received = True
 
     def on_terminate(self, data):
@@ -67,7 +73,7 @@ def test_async_time():
     austin = TestAsyncAustin()
     asyncio.get_event_loop().run_until_complete(
         austin.start(
-            ["-Ci", "1000", "python3", "-c", "for i in range(1000000): print(i)"]
+            ["-Ci", "100", "python", "-c", "for i in range(1000000): print(i)"]
         )
     )
     austin.assert_callbacks_called()
@@ -83,7 +89,7 @@ def test_async_memory():
     austin._sample_callback = sample_callback
     asyncio.get_event_loop().run_until_complete(
         austin.start(
-            ["-Cmi", "10000", "python3", "-c", "for i in range(1000000): print(i)"]
+            ["-Cmi", "10000", "python", "-c", "for i in range(1000000): print(i)"]
         )
     )
     austin.assert_callbacks_called()
@@ -104,7 +110,7 @@ def test_async_terminate():
 
     try:
         asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(austin.start(["-i", "10000", "python3"]), 5)
+            asyncio.wait_for(austin.start(["-i", "10000", "python"]), 5)
         )
     except AustinError:
         austin.assert_callbacks_called()
@@ -113,7 +119,7 @@ def test_async_terminate():
 def test_async_invalid_binary():
     with raises(AustinError):
         asyncio.get_event_loop().run_until_complete(
-            InvalidBinaryAsyncAustin(sample_callback=lambda x: None).start(["python3"])
+            InvalidBinaryAsyncAustin(sample_callback=lambda x: None).start(["python"])
         )
 
 
@@ -127,6 +133,6 @@ def test_async_bad_options():
     with raises(AustinError):
         asyncio.get_event_loop().run_until_complete(
             austin.start(
-                ["-I", "1000", "python3", "-c", "for i in range(1000000): print(i)"]
+                ["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"]
             )
         )

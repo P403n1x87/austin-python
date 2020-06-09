@@ -60,8 +60,13 @@ class InvalidBinarySimpleAustin(SimpleAustin):
 
 def test_simple():
     austin = TestSimpleAustin()
+
     austin.start(["-i", "1000", "python3", "-c", "for i in range(1000000): print(i)"])
+
     austin.assert_callbacks_called()
+
+    assert austin.version is not None
+    assert austin.python_version is not None
 
 
 def test_simple_invalid_binary():

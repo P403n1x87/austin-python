@@ -64,6 +64,17 @@ class AsyncAustin(BaseAustin):
             pass
     """
 
+    async def _read_header(self) -> bool:
+        while self._python_version is None:
+            line = (await self.proc.stderr.readline()).decode().rstrip()
+            if not line:
+                return False
+            if " austin version: " in line:
+                _, _, self._version = line.partition(": ")
+            elif " Python version: " in line:
+                _, _, self._python_version = line.partition(": ")
+        return True
+
     async def start(self, args: List[str] = None) -> None:
         """Create the start coroutine.
 
@@ -86,19 +97,22 @@ class AsyncAustin(BaseAustin):
         self._running = True
 
         try:
-            data = await self.proc.stdout.readline()
-            if data:
-                # Austin started correctly
-                self._ready_callback(
-                    *self._get_process_info(
-                        AustinArgumentParser().parse_args(args), self.proc.pid
-                    )
+            if not await self._read_header():
+                raise AustinError("Austin did not start properly")
+
+            # Austin started correctly
+            self._ready_callback(
+                *self._get_process_info(
+                    AustinArgumentParser().parse_args(args), self.proc.pid
                 )
+            )
 
             # Start readline loop
-            while data:
-                self._sample_callback(data.decode("ascii").rstrip())
+            while self._running:
                 data = await self.proc.stdout.readline()
+                if not data:
+                    break
+                self._sample_callback(data.decode().rstrip())
 
         finally:
             # Wait for the subprocess to terminate

@@ -57,6 +57,17 @@ class SimpleAustin(BaseAustin):
             pass
     """
 
+    def _read_header(self) -> bool:
+        while self._python_version is None:
+            line = (self.proc.stderr.readline()).decode().rstrip()
+            if not line:
+                return False
+            if " austin version: " in line:
+                _, _, self._version = line.partition(": ")
+            elif " Python version: " in line:
+                _, _, self._python_version = line.partition(": ")
+        return True
+
     def start(self, args: List[str] = None) -> None:
         """Start the Austin process."""
         try:
@@ -71,19 +82,22 @@ class SimpleAustin(BaseAustin):
         if not self.proc.stdout:
             raise AustinError("Standard output stream is unexpectedly missing")
         try:
-            line = self.proc.stdout.readline()
-            if line:
-                self._ready_callback(
-                    *self._get_process_info(
-                        AustinArgumentParser().parse_args(args), self.proc.pid
-                    )
+            if not self._read_header():
+                raise AustinError("Austin did not start properly")
+
+            self._ready_callback(
+                *self._get_process_info(
+                    AustinArgumentParser().parse_args(args), self.proc.pid
                 )
+            )
 
             self._running = True
 
-            while line:
-                self._sample_callback(line.decode("ascii").rstrip())
+            while True:
                 line = self.proc.stdout.readline()
+                if not line:
+                    break
+                self._sample_callback(line.decode("ascii").rstrip())
 
         finally:
             self.proc.wait()

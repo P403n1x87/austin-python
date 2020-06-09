@@ -77,6 +77,9 @@ class BaseAustin(ABC):
         self._terminate_callback = terminate_callback or self.on_terminate
         self._ready_callback = ready_callback or self.on_ready
 
+        self._version: Optional[str] = None
+        self._python_version: Optional[str] = None
+
     def _get_process_info(
         self, args: argparse.Namespace, austin_pid: int
     ) -> Tuple[psutil.Process, psutil.Process, str]:
@@ -180,3 +183,13 @@ class BaseAustin(ABC):
         the command line of the latter.
         """
         pass
+
+    @property
+    def version(self) -> Optional[str]:
+        """Austin version."""
+        return self._version
+
+    @property
+    def python_version(self) -> Optional[str]:
+        """The version of the detected Python interpreter."""
+        return self._python_version

@@ -26,7 +26,6 @@ import sys
 
 from austin import AustinError
 from austin.aio import AsyncAustin
-import pytest
 from pytest import raises
 
 
@@ -71,15 +70,19 @@ class InvalidBinaryAsyncAustin(AsyncAustin):
 
 def test_async_time():
     austin = TestAsyncAustin()
+
     asyncio.get_event_loop().run_until_complete(
         austin.start(
             ["-Ci", "100", "python", "-c", "for i in range(1000000): print(i)"]
         )
     )
+
     austin.assert_callbacks_called()
 
+    assert austin.version is not None
+    assert austin.python_version is not None
 
-@pytest.mark.skip(reason="The Cm options produce a funny output with austin 1.0.1")
+
 def test_async_memory():
     austin = TestAsyncAustin()
 

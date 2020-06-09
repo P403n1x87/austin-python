@@ -38,7 +38,7 @@ class AustinArgumentParser(ArgumentParser):
 
     This command line parser is based on :class:`argparse.ArgumentParser` and
     provides a minimal implementation for parsing the standard Austin command
-    line. The boolean arguments of the constructor are used to specify whether
+    line. The bool arguments of the constructor are used to specify whether
     the corresponding Austin option should be parsed or not. For example, if
     your application doesn't need the possiblity of switching to the
     alternative format, you can exclude this option with ``alt_format=False``.

@@ -76,17 +76,23 @@ class InvalidBinaryThreadedAustin(ThreadedAustin):
 
 def test_threaded():
     austin = TestThreadedAustin()
+
     austin.start(["-i", "1000", "python3", "-c", "for i in range(1000000): print(i)"])
     austin.join()
+
     austin.assert_callbacks_called()
+
+    assert austin.version is not None
+    assert austin.python_version is not None
 
 
 def test_threaded_terminate():
     austin = TestThreadedAustin()
 
     def sample_callback(*args):
+        if not austin._sample_received:
+            austin.terminate()
         austin._sample_received = True
-        austin.terminate()
 
     def terminate_callback(*args):
         austin._terminate = True
@@ -94,7 +100,7 @@ def test_threaded_terminate():
     austin._sample_callback = sample_callback
     austin._terminate_callback = terminate_callback
 
-    austin.start(["-i", "1000", "python3", "-c", "for i in range(1000000): print(i)"])
+    austin.start(["-i", "1000", "python3", "-c", "from time import sleep; sleep(1)"])
     austin.join()
     austin.assert_callbacks_called()
 

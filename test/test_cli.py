@@ -81,7 +81,7 @@ def test_args_list():
     args.pid = 42
     args.sleepless = True
     args.timeout = 50
-    args.command = "python3"
+    args.command = ["python3", "somescript.py"]
 
     args.foo = "bar"
 
@@ -99,4 +99,5 @@ def test_args_list():
         "-t",
         "50",
         "python3",
+        "somescript.py",
     ]

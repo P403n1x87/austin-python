@@ -106,7 +106,7 @@ class AustinArgumentParser(ArgumentParser):
             self.add_argument(
                 "-i",
                 "--interval",
-                help="Sampling interval (default is 100us).",
+                help="Sampling interval (default is 100 μs).",
                 type=int,
             )
 
@@ -133,7 +133,7 @@ class AustinArgumentParser(ArgumentParser):
                 "-t",
                 "--timeout",
                 help="Approximate start up wait time. Increase on slow machines "
-                "(default is 100ms).",
+                "(default is 100 ms).",
                 type=int,
             )
 
@@ -199,6 +199,6 @@ class AustinArgumentParser(ArgumentParser):
         if getattr(args, "timeout", None):
             arg_list += ["-t", str(args.timeout)]
         if getattr(args, "command", None):
-            arg_list.append(args.command)
+            arg_list += args.command
 
         return arg_list

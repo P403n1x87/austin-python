@@ -12,6 +12,7 @@ SUPPORTED_PYTHON_VERSIONS = ["3.6", "3.7", "3.8"]
 PYTEST_OPTIONS = ["--cov=austin", "--cov-report", "term-missing"]
 
 LINT_LOCATIONS = ["austin", "test", "noxfile.py"]
+LINT_EXCLUDES = ["austin/format/pprof/profile_pb2.py"]
 
 MYPY_LOCATIONS = LINT_LOCATIONS[:1]
 
@@ -34,7 +35,7 @@ def lint(session):
         "flake8-docstrings",
         "flake8-import-order",
     )
-    session.run("flake8", *LINT_LOCATIONS)
+    session.run("flake8", *LINT_LOCATIONS, "--exclude", *LINT_EXCLUDES)
 
 
 @nox.session(python=SUPPORTED_PYTHON_VERSIONS)

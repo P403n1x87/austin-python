@@ -40,14 +40,19 @@ classifiers = [
   "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
 ]
+packages = [
+    { include = "austin" },
+]
 
 [tool.poetry.scripts]
 austin2speedscope = "austin.format.speedscope:main"
+austin2pprof = "austin.format.pprof.__main__:main"
 
 [tool.poetry.dependencies]
 python = ">=3.6"
 dataclasses = "*"
 psutil = ">=5.7.0"
+protobuf = "^3.12.2"
 
 [tool.poetry.dev-dependencies]
 coverage = {extras = ["toml"], version = "*"}

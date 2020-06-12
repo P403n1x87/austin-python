@@ -28,15 +28,15 @@ from austin.stats import (AustinStats, Frame, FrameStats, Metrics,
 def test_austin_stats_single_process():
     stats = AustinStats(42)
 
-    stats.update(Sample.parse("Thread 0x7f45645646;foo (foo_module.py:10) 152"))
+    stats.update(Sample.parse("P42;T0x7f45645646;foo (foo_module.py:10) 152"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "Thread 0x7f45645646": ThreadStats(
-                        label="Thread 0x7f45645646",
+                    "0x7f45645646": ThreadStats(
+                        label="0x7f45645646",
                         total=Metrics(152),
                         children={
                             Frame("foo", "foo_module.py", 10): FrameStats(
@@ -51,15 +51,15 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(Sample.parse("Thread 0x7f45645646 148"))
+    stats.update(Sample.parse("P42;T0x7f45645646 148"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "Thread 0x7f45645646": ThreadStats(
-                        label="Thread 0x7f45645646",
+                    "0x7f45645646": ThreadStats(
+                        label="0x7f45645646",
                         total=Metrics(300),
                         own=Metrics(148),
                         children={
@@ -75,15 +75,15 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(Sample.parse("Thread 0x7f45645646;foo (foo_module.py:10) 100"))
+    stats.update(Sample.parse("P42;T0x7f45645646;foo (foo_module.py:10) 100"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "Thread 0x7f45645646": ThreadStats(
-                        label="Thread 0x7f45645646",
+                    "0x7f45645646": ThreadStats(
+                        label="0x7f45645646",
                         total=Metrics(400),
                         own=Metrics(148),
                         children={
@@ -99,15 +99,15 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(Sample.parse("Thread 0x7f45645646;bar (foo_module.py:35) 400"))
+    stats.update(Sample.parse("P42;T0x7f45645646;bar (foo_module.py:35) 400"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "Thread 0x7f45645646": ThreadStats(
-                        label="Thread 0x7f45645646",
+                    "0x7f45645646": ThreadStats(
+                        label="0x7f45645646",
                         total=Metrics(800),
                         own=Metrics(148),
                         children={
@@ -128,15 +128,15 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(Sample.parse("Thread 0x7f45645664;foo (foo_module.py:10) 152"))
+    stats.update(Sample.parse("P42;T0x7f45645664;foo (foo_module.py:10) 152"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "Thread 0x7f45645664": ThreadStats(
-                        label="Thread 0x7f45645664",
+                    "0x7f45645664": ThreadStats(
+                        label="0x7f45645664",
                         total=Metrics(152),
                         children={
                             Frame("foo", "foo_module.py", 10): FrameStats(
@@ -146,8 +146,8 @@ def test_austin_stats_single_process():
                             )
                         },
                     ),
-                    "Thread 0x7f45645646": ThreadStats(
-                        label="Thread 0x7f45645646",
+                    "0x7f45645646": ThreadStats(
+                        label="0x7f45645646",
                         total=Metrics(800),
                         own=Metrics(148),
                         children={

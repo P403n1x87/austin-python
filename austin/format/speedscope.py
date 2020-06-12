@@ -100,7 +100,7 @@ def _generate_profiles(
         except InvalidSample:
             continue
 
-        thread = f"Thread {sample.pid}:{sample.thread.split()[1]}"
+        thread = f"Thread {sample.pid}:{sample.thread}"
 
         add_frames_to_thread_profile(
             get_profile(f"Time profile of {thread}", Units.MICROSECONDS),

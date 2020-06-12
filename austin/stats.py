@@ -144,11 +144,14 @@ class Sample:
         if not sample:
             raise InvalidSample(sample)
 
-        pid = "0"
-        rest = sample
-        if rest[0] == "P":
-            process, _, rest = rest.partition(";")
-            _, pid = process.split()
+        if sample[0] != "P":
+            raise InvalidSample(f"Sample doesn't begin with process id: {sample}")
+
+        process, _, rest = sample.partition(";")
+        try:
+            pid = int(process[1:])
+        except ValueError:
+            raise InvalidSample(f"Sample has invalid process id: {sample}")
 
         try:
             thread_frames, *metrics = rest.rsplit(maxsplit=3)
@@ -157,9 +160,11 @@ class Sample:
             # Time/memory metrics
             thread_frames, *metrics = rest.rsplit(maxsplit=1)
 
+        if thread_frames[0] != "T":
+            raise InvalidSample(f"Sample doesn't have thread id: {sample}")
+
         thread, _, frames = thread_frames.partition(";")
-        if thread[0] != "T":
-            raise InvalidSample(sample)
+        thread = thread[1:]
 
         if frames:
             colon = frames.rfind(";")
@@ -175,8 +180,10 @@ class Sample:
                 if frames
                 else [],
             )
-        except (ValueError, InvalidFrame):
-            raise InvalidSample(sample)
+        except ValueError as e:
+            raise InvalidSample(f"Sample has invalid metric values: {sample}") from e
+        except InvalidFrame as e:
+            raise InvalidSample(f"Sample has invalid frames: {sample}") from e
 
 
 @dataclass

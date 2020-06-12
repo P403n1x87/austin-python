@@ -27,14 +27,14 @@ from pytest import raises
 
 def test_sample_alt_format():
     Sample.parse(
-        "Thread 7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;"
+        "P1;T7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;"
         "_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;"
         "run (/usr/lib/python3.6/threading.py);L864;"
         "keep_cpu_busy (test/target34.py);L31 "
         "10085"
     ) == Sample(
         0,
-        "Thread 7fdf1b437700",
+        "7fdf1b437700",
         Metrics(10085),
         [
             Frame.parse("_bootstrap (/usr/lib/python3.6/threading.py:884)"),
@@ -46,44 +46,44 @@ def test_sample_alt_format():
 
 def test_sample_parser_valid():
     assert Sample.parse(
-        "Process 123;Thread 0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42"
+        "P123;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42"
     ) == Sample(
         123,
-        "Thread 0x7f546684",
+        "0x7f546684",
         Metrics(42),
         [Frame("foo", "foo_module.py", 10), Frame("bar", "bar_module.py", 20)],
     )
 
     assert Sample.parse(
-        "Thread 0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42"
+        "P1;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42"
     ) == Sample(
-        0,
-        "Thread 0x7f546684",
+        1,
+        "0x7f546684",
         Metrics(42),
         [Frame("foo", "foo_module.py", 10), Frame("bar", "bar_module.py", 20)],
     )
 
     assert Sample.parse(
-        "Process 123;Thread 0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) "
+        "P123;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) "
         "42 43 -44"
     ) == Sample(
         123,
-        "Thread 0x7f546684",
+        "0x7f546684",
         Metrics(42, 43, -44),
         [Frame("foo", "foo_module.py", 10), Frame("bar", "bar_module.py", 20)],
     )
 
     assert Sample.parse(
-        "Thread 0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44"
+        "P1;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44"
     ) == Sample(
-        0,
-        "Thread 0x7f546684",
+        1,
+        "0x7f546684",
         Metrics(42, 43, -44),
         [Frame("foo", "foo_module.py", 10), Frame("bar", "bar_module.py", 20)],
     )
 
-    assert Sample.parse("Thread 0x7f546684 42 43 -44") == Sample(
-        0, "Thread 0x7f546684", Metrics(42, 43, -44), []
+    assert Sample.parse("P1;T0x7f546684 42 43 -44") == Sample(
+        1, "0x7f546684", Metrics(42, 43, -44), []
     )
 
 
@@ -96,20 +96,20 @@ def test_sample_parser_invalid():
 
     with raises(InvalidSample):  # With PID but missing Thread
         Sample.parse(
-            "Process 123;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44"
+            "P123;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44"
         )
 
     with raises(InvalidSample):  # Completely bonkers
         Sample.parse("snafu")
 
     with raises(InvalidSample):  # no metrics
-        Sample.parse("Thread 0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20)")
+        Sample.parse("P1;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20)")
 
     with raises(InvalidSample):  # invalid frame
-        Sample.parse("Thread 0x7f546684;foo (foo_module.py:10);snafu 10")
+        Sample.parse("P1;T0x7f546684;foo (foo_module.py:10);snafu 10")
 
     with raises(InvalidSample):  # Invalid number of metrics
-        Sample.parse("Thread 0x7f546684;foo (foo_module.py:10) 10 20")
+        Sample.parse("P1;T0x7f546684;foo (foo_module.py:10) 10 20")
 
     with raises(InvalidSample):  # Too many metrics
-        Sample.parse("Thread 0x7f546684;foo (foo_module.py:10) 10 20 30 40")
+        Sample.parse("P1;T0x7f546684;foo (foo_module.py:10) 10 20 30 40")

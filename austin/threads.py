@@ -63,10 +63,18 @@ class ThreadedAustin(SimpleAustin):
         super().__init__(*args, **kwargs)
 
         self._thread: Optional[Thread] = None
+        self._exc: Optional[Exception] = None
 
     def start(self, args: List[str] = None) -> None:
         """Start the Austin thread."""
-        self._thread = Thread(target=super().start, args=(args,))
+
+        def _thread_bootstrap() -> None:
+            try:
+                SimpleAustin.start(self, args)
+            except Exception as e:
+                self._exc = e
+
+        self._thread = Thread(target=_thread_bootstrap)
         self._thread.start()
 
     def get_thread(self) -> Optional[Thread]:
@@ -90,5 +98,7 @@ class ThreadedAustin(SimpleAustin):
             This is an extension of the base Austin abstract class.
         """
         if self._thread is None:
-            raise AustinError("The Austin thread has not been started yet")
+            raise AustinError("Austin thread has not been started yet")
         self._thread.join(timeout)
+        if self._exc:
+            raise self._exc

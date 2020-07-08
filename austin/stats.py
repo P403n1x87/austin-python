@@ -23,7 +23,7 @@
 
 from dataclasses import dataclass, field
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TextIO
 
 from austin import AustinError
 
@@ -79,6 +79,10 @@ class Metrics:
     def copy(self) -> "Metrics":
         """Make a copy of this object."""
         return self + Metrics()
+
+    def __str__(self) -> str:
+        """Stringify the metrics."""
+        return f"{self.time} {self.memory_alloc} {self.memory_dealloc}"
 
 
 @dataclass(frozen=True)
@@ -229,6 +233,18 @@ class HierarchicalStats:
         """Get a child from the children collection."""
         return self.children[label]
 
+    def collapse(self, prefix: str = "") -> List[str]:
+        """Collapse the hierarchical statistics."""
+        if not self.children:
+            return [f";{prefix}{self.label} {self.own}"]
+
+        own = [] if self.own == Metrics() else [f";{self.label} {self.own}"]
+        return own + [
+            f";{prefix}{self.label}{rest}"
+            for _, child in self.children.items()
+            for rest in child.collapse()
+        ]
+
 
 @dataclass
 class FrameStats(HierarchicalStats):
@@ -245,6 +261,10 @@ class ThreadStats(HierarchicalStats):
     label: ThreadName
     children: Dict[Frame, FrameStats] = field(default_factory=dict)
 
+    def collapse(self) -> List[str]:
+        """Collapse the hierarchical statistics."""
+        return super().collapse("T")
+
 
 @dataclass
 class ProcessStats:
@@ -252,6 +272,14 @@ class ProcessStats:
 
     pid: ProcessId
     threads: Dict[ThreadName, ThreadStats] = field(default_factory=dict)
+
+    def collapse(self) -> List[str]:
+        """Collapse the hierarchical statistics."""
+        return [
+            f"P{self.pid}{rest}"
+            for _, thread in self.threads.items()
+            for rest in thread.collapse()
+        ]
 
     def get_thread(self, thread_name: ThreadName) -> Optional[ThreadStats]:
         """Get thread statistics from this process by name.
@@ -275,9 +303,23 @@ class AustinStats:
     child_pid: ProcessId = 0
     processes: Dict[ProcessId, ProcessStats] = field(default_factory=dict)
 
+    def dump(self, stream: TextIO) -> None:
+        """Dump the statistics to the given text stream."""
+        for _, process in self.processes.items():
+            for sample in process.collapse():
+                stream.write(sample + "\n")
+
     def get_process(self, pid: ProcessId) -> ProcessStats:
         """Get process statistics for the given PID."""
         return self.processes[pid]
+
+    @classmethod
+    def load(cls: "AustinStats", stream: TextIO) -> "AustinStats":
+        """Load statistics from the given text stream."""
+        stats = cls()
+        for line in stream:
+            stats.update(Sample.parse(line))
+        return stats
 
     def update(self, sample: Sample) -> None:
         """Update the statistics with a new sample.

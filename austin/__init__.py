@@ -36,6 +36,15 @@ class AustinError(Exception):
     pass
 
 
+class AustinTerminated(AustinError):
+    """Austin termination exception.
+
+    Thrown when Austin is terminated with a call to ``terminate``.
+    """
+
+    pass
+
+
 class BaseAustin(ABC):
     """Base Austin class.
 
@@ -142,9 +151,13 @@ class BaseAustin(ABC):
         Stop the underlying Austin process by sending a termination signal.
         """
         if not self._proc:
-            raise AustinError("Cannot terminate Austin because it is not running!")
+            raise AustinError("Austin has not been started yet")
 
-        self._proc.send_signal(signal.SIGINT)
+        try:
+            self._proc.send_signal(signal.SIGTERM)
+        except psutil.NoSuchProcess:
+            raise AustinError("Austin has already terminated")
+
         self._running = False
         self._proc = None
         self._child_proc = None

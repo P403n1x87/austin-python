@@ -29,7 +29,7 @@ from austin.aio import AsyncAustin
 from pytest import raises
 
 
-if sys.platform == 'win32':
+if sys.platform == "win32":
     loop = asyncio.ProactorEventLoop()
     asyncio.set_event_loop(loop)
 
@@ -72,9 +72,7 @@ def test_async_time():
     austin = TestAsyncAustin()
 
     asyncio.get_event_loop().run_until_complete(
-        austin.start(
-            ["-Ci", "100", "python", "-c", "for i in range(1000000): print(i)"]
-        )
+        austin.start(["-i", "100", "python", "-c", "for i in range(1000000): print(i)"])
     )
 
     austin.assert_callbacks_called()
@@ -92,7 +90,7 @@ def test_async_memory():
     austin._sample_callback = sample_callback
     asyncio.get_event_loop().run_until_complete(
         austin.start(
-            ["-Cmi", "10000", "python", "-c", "for i in range(1000000): print(i)"]
+            ["-mi", "100", "python", "-c", "for i in range(1000000): print(i)"]
         )
     )
     austin.assert_callbacks_called()

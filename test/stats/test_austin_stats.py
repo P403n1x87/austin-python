@@ -21,8 +21,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from austin.stats import (AustinStats, Frame, FrameStats, Metrics,
-                          ProcessStats, Sample, ThreadStats)
+import io
+
+from austin.stats import (
+    AustinStats,
+    Frame,
+    FrameStats,
+    Metrics,
+    ProcessStats,
+    Sample,
+    ThreadStats,
+)
+
+
+DUMP_LOAD_SAMPLES = """P42;T0x7f45645646;foo (foo_module.py:10) 300 0 0
+P42;T0x7f45645646;foo (foo_module.py:10);bar (bar_sample.py:20) 1000 0 0
+"""
 
 
 def test_austin_stats_single_process():
@@ -163,6 +177,76 @@ def test_austin_stats_single_process():
                             ),
                         },
                     ),
+                },
+            )
+        },
+    )
+
+
+def test_dump():
+    stats = AustinStats(42)
+
+    FOO_SAMPLE = "P42;T0x7f45645646;foo (foo_module.py:10) 150"
+    BAR_SAMPLE = "P42;T0x7f45645646;foo (foo_module.py:10);bar (bar_sample.py:20) 1000"
+
+    stats.update(Sample.parse(FOO_SAMPLE))
+    stats.update(Sample.parse(FOO_SAMPLE))
+    stats.update(Sample.parse(BAR_SAMPLE))
+
+    buffer = io.StringIO()
+    stats.dump(buffer)
+    assert buffer.getvalue() == DUMP_LOAD_SAMPLES
+
+
+def test_load():
+    buffer = io.StringIO(DUMP_LOAD_SAMPLES)
+    stats = AustinStats.load(buffer)
+    assert stats == AustinStats(
+        child_pid=0,
+        processes={
+            42: ProcessStats(
+                pid=42,
+                threads={
+                    "0x7f45645646": ThreadStats(
+                        label="0x7f45645646",
+                        own=Metrics(time=0, memory_alloc=0, memory_dealloc=0),
+                        total=Metrics(time=1300, memory_alloc=0, memory_dealloc=0),
+                        children={
+                            Frame(
+                                function="foo", filename="foo_module.py", line=10
+                            ): FrameStats(
+                                label=Frame(
+                                    function="foo", filename="foo_module.py", line=10
+                                ),
+                                own=Metrics(time=300, memory_alloc=0, memory_dealloc=0),
+                                total=Metrics(
+                                    time=1300, memory_alloc=0, memory_dealloc=0
+                                ),
+                                children={
+                                    Frame(
+                                        function="bar",
+                                        filename="bar_sample.py",
+                                        line=20,
+                                    ): FrameStats(
+                                        label=Frame(
+                                            function="bar",
+                                            filename="bar_sample.py",
+                                            line=20,
+                                        ),
+                                        own=Metrics(
+                                            time=1000, memory_alloc=0, memory_dealloc=0
+                                        ),
+                                        total=Metrics(
+                                            time=1000, memory_alloc=0, memory_dealloc=0
+                                        ),
+                                        children={},
+                                        height=1,
+                                    )
+                                },
+                                height=0,
+                            )
+                        },
+                    )
                 },
             )
         },

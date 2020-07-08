@@ -25,7 +25,7 @@ import subprocess
 import sys
 from typing import List
 
-from austin import AustinError, BaseAustin
+from austin import AustinError, AustinTerminated, BaseAustin
 from austin.cli import AustinArgumentParser
 
 
@@ -81,6 +81,9 @@ class SimpleAustin(BaseAustin):
 
         if not self.proc.stdout:
             raise AustinError("Standard output stream is unexpectedly missing")
+        if not self.proc.stderr:
+            raise AustinError("Standard error stream is unexpectedly missing")
+
         try:
             if not self._read_header():
                 raise AustinError("Austin did not start properly")
@@ -97,16 +100,13 @@ class SimpleAustin(BaseAustin):
                 line = self.proc.stdout.readline()
                 if not line:
                     break
-                self._sample_callback(line.decode("ascii").rstrip())
+                self._sample_callback(line.decode().rstrip())
 
         finally:
-            self.proc.wait()
+            stderr = self.proc.communicate()[1].decode().rstrip()
             self._running = False
-
-            if not self.proc.stderr:
-                raise AustinError("Standard error stream is unexpectedly missing")
-
-            stderr = (self.proc.stderr.read()).decode().rstrip()
             self._terminate_callback(stderr)
             if self.proc.returncode:
+                if self.proc.returncode in (-15, 15):
+                    raise AustinTerminated(stderr)
                 raise AustinError(f"({self.proc.returncode}) {stderr}")

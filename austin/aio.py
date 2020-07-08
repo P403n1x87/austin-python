@@ -25,7 +25,7 @@ import asyncio
 import sys
 from typing import List
 
-from austin import AustinError, BaseAustin
+from austin import AustinError, AustinTerminated, BaseAustin
 from austin.cli import AustinArgumentParser
 
 
@@ -93,6 +93,8 @@ class AsyncAustin(BaseAustin):
 
         if not self.proc.stdout:
             raise AustinError("Standard output stream is unexpectedly missing")
+        if not self.proc.stderr:
+            raise AustinError("Standard error stream is unexpectedly missing")
 
         self._running = True
 
@@ -117,8 +119,6 @@ class AsyncAustin(BaseAustin):
         finally:
             # Wait for the subprocess to terminate
             self._running = False
-            if not self.proc.stderr:
-                raise AustinError("Standard error stream is unexpectedly missing")
 
             try:
                 stderr = (
@@ -132,4 +132,6 @@ class AsyncAustin(BaseAustin):
 
             rcode = await self.proc.wait()
             if rcode:
+                if rcode in (-15, 15):
+                    raise AustinTerminated(stderr)
                 raise AustinError(f"({rcode}) {stderr}")

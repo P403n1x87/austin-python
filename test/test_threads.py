@@ -21,7 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from austin import AustinError
+from austin import AustinError, AustinTerminated
 from austin.simple import SimpleAustin
 from austin.threads import ThreadedAustin
 from pytest import raises
@@ -49,7 +49,7 @@ class TestThreadedAustin(ThreadedAustin):
 
     def on_ready(self, process, child_process, command_line):
         assert process.pid != child_process.pid
-        assert "python3" in self.get_command_line()
+        assert "python" in self.get_command_line()
         self._ready = True
 
     def on_sample_received(self, line):
@@ -77,7 +77,7 @@ class InvalidBinaryThreadedAustin(ThreadedAustin):
 def test_threaded():
     austin = TestThreadedAustin()
 
-    austin.start(["-i", "1000", "python3", "-c", "for i in range(1000000): print(i)"])
+    austin.start(["-i", "1000", "python", "-c", "for i in range(1000000): print(i)"])
     austin.join()
 
     austin.assert_callbacks_called()
@@ -100,14 +100,15 @@ def test_threaded_terminate():
     austin._sample_callback = sample_callback
     austin._terminate_callback = terminate_callback
 
-    austin.start(["-i", "1000", "python3", "-c", "from time import sleep; sleep(1)"])
-    austin.join()
+    austin.start(["-i", "100", "python", "-c", "from time import sleep; sleep(1)"])
+    with raises(AustinTerminated):
+        austin.join()
     austin.assert_callbacks_called()
 
 
 def test_threaded_invalid_binary():
     SimpleAustin.start = check_raises(AustinError)(SimpleAustin.start)
-    InvalidBinaryThreadedAustin(sample_callback=lambda x: None).start(["python3"])
+    InvalidBinaryThreadedAustin(sample_callback=lambda x: None).start(["python"])
 
 
 def test_threaded_no_sample_callback():
@@ -117,5 +118,5 @@ def test_threaded_no_sample_callback():
 
 def test_threaded_bad_options():
     austin = TestThreadedAustin(terminate_callback=lambda *args: None)
-    austin.start(["-I", "1000", "python3", "-c", "for i in range(1000000): print(i)"])
+    austin.start(["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"])
     austin.join()

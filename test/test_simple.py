@@ -37,7 +37,7 @@ class TestSimpleAustin(SimpleAustin):
 
     def on_ready(self, process, child_process, command_line):
         assert process.pid != child_process.pid
-        assert "python3" in self.get_command_line()
+        assert "python" in self.get_command_line()
         self._ready = True
 
     def on_sample_received(self, line):
@@ -61,7 +61,7 @@ class InvalidBinarySimpleAustin(SimpleAustin):
 def test_simple():
     austin = TestSimpleAustin()
 
-    austin.start(["-i", "1000", "python3", "-c", "for i in range(1000000): print(i)"])
+    austin.start(["-i", "1000", "python", "-c", "for i in range(1000000): print(i)"])
 
     austin.assert_callbacks_called()
 
@@ -71,7 +71,7 @@ def test_simple():
 
 def test_simple_invalid_binary():
     with raises(AustinError):
-        InvalidBinarySimpleAustin(sample_callback=lambda x: None).start(["python3"])
+        InvalidBinarySimpleAustin(sample_callback=lambda x: None).start(["python"])
 
 
 def test_simple_no_sample_callback():
@@ -83,5 +83,5 @@ def test_simple_bad_options():
     austin = TestSimpleAustin(terminate_callback=lambda *args: None)
     with raises(AustinError):
         austin.start(
-            ["-I", "1000", "python3", "-c", "for i in range(1000000): print(i)"]
+            ["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"]
         )

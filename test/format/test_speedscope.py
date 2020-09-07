@@ -21,12 +21,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import json
+from austin.format.speedscope import Speedscope
+from austin.stats import Sample
 
-from austin.format.speedscope import to_speedscope
+
+def test_speedscope_full_metrics():
+    speedscope = Speedscope("austin_full_metrics")
+    for sample in ["P42;T123;foo (foo_module.py:10) 10 20 -30"]:
+        speedscope.add_sample(Sample.parse(sample))
+    assert len(speedscope.asdict()["profiles"]) == 3
 
 
-def test_speedscope():
-    with open("test/data/austin.out") as austin:
-        with open("test/data/austin.json") as speedscope:
-            assert to_speedscope(austin, "austin.out") == json.load(speedscope)
+def test_speedscope_full_metrics_alloc_dealloc():
+    speedscope = Speedscope("austin_full_metrics")
+    for sample in [
+        "P42;T123;foo (foo_module.py:10) 10 20 0",
+        "P42;T321;foo (foo_module.py:10) 10 0 -30",
+    ]:
+        speedscope.add_sample(Sample.parse(sample))
+    assert len(speedscope.asdict()["profiles"]) == 4

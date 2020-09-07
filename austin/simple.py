@@ -94,19 +94,22 @@ class SimpleAustin(BaseAustin):
                 )
             )
 
-            self._running = True
-
-            while True:
-                line = self.proc.stdout.readline()
-                if not line:
+            while self.is_running():
+                data = self.proc.stdout.readline()
+                if not data:
                     break
-                self._sample_callback(line.decode().rstrip())
+
+                self.submit_sample(data)
 
         finally:
-            stderr = self.proc.communicate()[1].decode().rstrip()
+            try:
+                stderr = self.proc.communicate(timeout=1)[1].decode().rstrip()
+            except subprocess.TimeoutExpired:
+                stderr = ""
             self._running = False
             self._terminate_callback(stderr)
-            if self.proc.returncode:
-                if self.proc.returncode in (-15, 15):
+            retcode = self.proc.wait()
+            if retcode:
+                if retcode in (-15, 15):
                     raise AustinTerminated(stderr)
                 raise AustinError(f"({self.proc.returncode}) {stderr}")

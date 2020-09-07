@@ -24,7 +24,7 @@
 from argparse import ArgumentParser
 
 from austin.format.pprof import PProf
-from austin.stats import Sample
+from austin.stats import InvalidSample, Sample
 
 
 def main() -> None:
@@ -38,9 +38,7 @@ def main() -> None:
     )
 
     arg_parser.add_argument(
-        "input",
-        type=str,
-        help="The input file containing Austin samples.",
+        "input", type=str, help="The input file containing Austin samples.",
     )
     arg_parser.add_argument(
         "output", type=str, help="The name of the output pprof file."
@@ -55,7 +53,10 @@ def main() -> None:
     try:
         with open(args.input, "r") as fin:
             for line in fin:
-                pprof.add_sample(Sample.parse(line))
+                try:
+                    pprof.add_sample(Sample.parse(line))
+                except InvalidSample:
+                    continue
 
     except FileNotFoundError:
         print(f"No such input file: {args.input}")

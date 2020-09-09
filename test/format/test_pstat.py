@@ -49,6 +49,6 @@ def test_pstat_two_level_stack():
         "P42;T123;foo (foo_module.py:10);bar (bar_module.py:15) 20 20 0",
     ]:
         pstats.add_sample(Sample.parse(sample))
-    assert pstats.asdict() == {('bar_module.py', 15, 'bar'): (1, 1, 10, 10, {('foo_module.py', 10, 'foo'): 1}),
+    assert pstats.asdict() == {('bar_module.py', 15, 'bar'): (2, 2, 10, 10, {('foo_module.py', 10, 'foo'): 1}),
                                ('foo_module.py', 10, 'foo'): (1, 1, 20, 20, {})}
 

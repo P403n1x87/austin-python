@@ -74,7 +74,7 @@ class Pstats:
                 if depth == 0:
                     caller = {}  # root-call
                 else:
-                    caller = {frames[i - 2]: 1}  # Increment call count, set frame to left (f_back) as caller
+                    caller = {frames[i - 1]: 1}  # Increment call count, set frame to left (f_back) as caller
                 stat = (1, 1, dt, dt, caller)
             else:
                 stat = (0, 0, dt, dt, {})

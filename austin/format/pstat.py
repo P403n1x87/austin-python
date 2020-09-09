@@ -22,7 +22,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from pstats import Stats, add_func_stats
-
 from austin.stats import Sample, InvalidSample
 
 ProfileName = str
@@ -30,35 +29,63 @@ ProfileName = str
 
 class Pstats:
     def __init__(self):
+        self.last_sample = 0
+        self.last_stack = []
         self.stats = Stats()
 
     def print_stats(self):
-        self.stats.print_stats(1)
+        self.stats.print_stats()
 
     def dump(self, f):
         self.stats.dump_stats(f)
 
     def add_sample(self, sample: Sample):
-        # Stats.stats is a dictionary of Key<Tuple>
-        # (fcode.co_filename, fcode.co_firstlineno, fcode.co_name)
-        # Add frame to stats (cc, ns, tt, ct, callers)
-        #     [0] = The number of times this function was called, not counting direct
+        # Stats.stats is a dictionary with key:
+        #  (fcode.co_filename, fcode.co_firstlineno, fcode.co_name)
+        # and value  (cc, ns, tt, ct, callers)
+        #     [cc] = The number of times this function was called, not counting direct
         #           or indirect recursion,
-        #     [1] = Number of times this function appears on the stack, minus one
-        #     [2] = Total time spent internal to this function
-        #     [3] = Cumulative time that this function was present on the stack.  In
+        #     [ns] = Number of times this function appears on the stack, minus one
+        #     [tt] = Total time spent internal to this function
+        #     [ct] = Cumulative time that this function was present on the stack.  In
         #           non-recursive functions, this is the total execution time from start
         #           to finish of each invocation of a function, including time spent in
         #           all subfunctions.
-        #     [4] = A dictionary indicating for each function name, the number of times
+        #     [callers] = A dictionary indicating for each function name, the number of times
         #           it was called by us.
-        for frame in sample.frames:
-            fn = frame.filename, frame.line, frame.function
-            stat = (0, 0, 0, 0, {})
+        dt = sample.metrics.time - self.last_sample
+        if dt < 0:
+            dt = 0
+        frames = [(frame.filename, frame.line, frame.function) for frame in sample.frames]
+
+        # Find the depth in the stack that changed between the last sample
+        depth = None  # Default to stacks being identical
+        for i, frame in enumerate(frames):
+            try:
+                if frames[i] != self.last_stack[i]:
+                    depth = i
+                    break
+            except IndexError:
+                depth = i
+                break
+
+        for i, fn in enumerate(frames):
+            if depth and i >= depth:
+                if depth == 0:
+                    caller = {}  # root-call
+                else:
+                    caller = {frames[i - 2]: 1}  # Increment call count, set frame to left (f_back) as caller
+                stat = (1, 1, dt, dt, caller)
+            else:
+                stat = (0, 0, dt, dt, {})
+
             if fn not in self.stats.stats:
-                self.stats.stats[fn] = add_func_stats((0, 0, 0, 0, {}), stat)
+                self.stats.stats[fn] = add_func_stats((1, 1, 0, 0, {}), stat)
             else:
                 self.stats.stats[fn] = add_func_stats(self.stats.stats[fn], stat)
+
+        self.last_sample = sample.metrics.time
+        self.last_stack = frames
 
     def asdict(self):
         return self.stats.stats
@@ -104,6 +131,7 @@ def main() -> None:
         exit(1)
 
     stats.dump(args.output)
+    stats.print_stats()
 
 
 if __name__ == "__main__":

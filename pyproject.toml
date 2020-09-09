@@ -48,6 +48,7 @@ packages = [
 [tool.poetry.scripts]
 austin2speedscope = "austin.format.speedscope:main"
 austin2pprof = "austin.format.pprof.__main__:main"
+austin2pstat = "austin.format.pstat:main"
 
 [tool.poetry.dependencies]
 python = "^3.6"

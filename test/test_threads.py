@@ -90,9 +90,8 @@ def test_threaded_terminate():
     austin = TestThreadedAustin()
 
     def sample_callback(*args):
-        if not austin._sample_received:
-            austin.terminate()
         austin._sample_received = True
+        austin.terminate()
 
     def terminate_callback(*args):
         austin._terminate = True

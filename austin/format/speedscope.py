@@ -24,9 +24,9 @@
 from dataclasses import asdict, dataclass, field
 from enum import Enum
 import json
-from typing import Any, Dict, Iterator, List, Tuple
+from typing import Dict, List, Optional, TextIO
 
-from austin.stats import InvalidSample, Sample
+from austin.stats import Frame, InvalidSample, Sample, ZERO
 
 SpeedscopeJson = Dict
 SpeedscopeWeight = int
@@ -57,102 +57,99 @@ class SpeedscopeProfile:
     unit: Units
     startValue: int = 0
     endValue: int = 0
-    samples: List[Any] = field(default_factory=list)
+    samples: List[List[int]] = field(default_factory=list)
     weights: List[SpeedscopeWeight] = field(default_factory=list)
     type: str = "sampled"
 
+    def add_sample(self, stack: List[int], weight: SpeedscopeWeight) -> None:
+        """Add a sample to the profile."""
+        self.samples.append(stack)
+        self.weights.append(weight)
+        self.endValue += weight
 
-def _generate_profiles(
-    source: Iterator[str]
-) -> Tuple[List[SpeedscopeFrame], Dict[ProfileName, SpeedscopeProfile]]:
-    shared_frames: List[SpeedscopeFrame] = []
-    frame_index = {}
 
-    profiles = {}
+class Speedscope:
+    """Speedscope JSON generator."""
 
-    def get_profile(name: ProfileName, unit: Units) -> SpeedscopeProfile:
-        if name not in profiles:
-            profiles[name] = SpeedscopeProfile(name=name, unit=unit.value)
+    def __init__(self, name: str, indent: Optional[int] = None) -> None:
+        self.name = name
+        self.indent = indent
 
-        return profiles[name]
+        self.profiles: List[SpeedscopeProfile] = []
+        self.profile_map: Dict[int, Dict[str, Dict[str, SpeedscopeProfile]]] = {}
 
-    def add_frames_to_thread_profile(
-        thread_profile: SpeedscopeProfile, sample: Sample, metric: SpeedscopeWeight
-    ) -> None:
-        stack = []
-        for frame in sample.frames:
-            frame_id = str(frame)
-            if frame_id not in frame_index:
-                frame_index[frame_id] = len(shared_frames)
-                shared_frames.append(
-                    SpeedscopeFrame(frame.function, frame.filename, frame.line)
-                )
+        self.frames: List[dict] = []
+        self.frame_map: Dict[Frame, int] = {}
 
-            stack.append(frame_index[frame_id])
+    def get_frame(self, frame: Frame) -> int:
+        """Get the index of an observed frame."""
+        if frame in self.frame_map:
+            return self.frame_map[frame]
 
-        thread_profile.samples.append(stack)
-        thread_profile.weights.append(metric)
-        thread_profile.endValue += metric
+        index = len(self.frames)
+        self.frame_map[frame] = index
+        self.frames.append(
+            asdict(SpeedscopeFrame(frame.function, frame.filename, frame.line))
+        )
 
-    for line in source:
-        try:
-            sample = Sample.parse(line)
-        except InvalidSample:
-            continue
+        return index
 
-        thread = f"Thread {sample.pid}:{sample.thread}"
+    def get_profile(self, pid: int, thread: str, metric: str) -> SpeedscopeProfile:
+        """Get the profile for the given pid, thread and profile metric."""
+        prefix = {"t": "Time", "m+": "Memory allocation", "m-": "Memory deallocation"}[
+            metric
+        ]
+        units = Units.BYTES if metric[0] == "m" else Units.MICROSECONDS
+        profiles = self.profile_map.setdefault(pid, {}).setdefault(thread, {})
+        if metric in profiles:
+            return profiles[metric]
 
-        add_frames_to_thread_profile(
-            get_profile(f"Time profile of {thread}", Units.MICROSECONDS),
-            sample,
-            sample.metrics.time,
+        self.profiles.append(
+            SpeedscopeProfile(
+                name=f"{prefix} profile for {pid}:{thread}", unit=units.value,
+            )
+        )
+        return profiles.setdefault(metric, self.profiles[-1],)
+
+    def add_sample(self, sample: Sample) -> None:
+        """Add a sample to the generator."""
+        if not sample.frames or sample.metrics == ZERO:
+            return
+
+        self.get_profile(sample.pid, sample.thread, "t").add_sample(
+            [self.get_frame(frame) for frame in sample.frames], sample.metrics.time
         )
 
         if sample.metrics.memory_alloc:
-            add_frames_to_thread_profile(
-                get_profile(f"Memory allocation profile of {thread}", Units.BYTES),
-                sample,
-                sample.metrics.memory_alloc << 10,
+            self.get_profile(sample.pid, sample.thread, "m+").add_sample(
+                [self.get_frame(frame) for frame in sample.frames],
+                sample.metrics.memory_alloc,
             )
 
         if sample.metrics.memory_dealloc:
-            add_frames_to_thread_profile(
-                get_profile(f"Memory release profile of {thread}", Units.BYTES),
-                sample,
-                sample.metrics.memory_dealloc << 10,
+            self.get_profile(sample.pid, sample.thread, "m-").add_sample(
+                [self.get_frame(frame) for frame in sample.frames],
+                -sample.metrics.memory_dealloc,
             )
 
-    return shared_frames, profiles
+    def asdict(self) -> SpeedscopeJson:
+        """Return the JSON as a Python dictionary."""
+        return {
+            "$schema": "https://www.speedscope.app/file-format-schema.json",
+            "shared": {"frames": self.frames},
+            "profiles": sorted(
+                [asdict(profile) for profile in self.profiles],
+                key=lambda p: p["name"].rsplit(maxsplit=1)[-1],
+            ),
+            "name": self.name,
+            "exporter": "Austin2Speedscope Converter 0.2.0",
+        }
 
-
-def _generate_json(
-    frames: List[SpeedscopeFrame],
-    profiles: Dict[ProfileName, SpeedscopeProfile],
-    name: str,
-) -> SpeedscopeJson:
-    return {
-        "$schema": "https://www.speedscope.app/file-format-schema.json",
-        "shared": {"frames": [asdict(frame) for frame in frames]},
-        "profiles": sorted(
-            [asdict(profile) for _, profile in profiles.items()],
-            key=lambda p: p["name"].rsplit(maxsplit=1)[-1],
-        ),
-        "name": name,
-        "exporter": "Austin2Speedscope Converter 0.2.0",
-    }
-
-
-def to_speedscope(source: Iterator[str], name: str) -> SpeedscopeJson:
-    """Convert a list of collapsed samples to the speedscope JSON format.
-
-    The result is a Python ``dict`` that complies with the Speedscope JSON
-    schema and that can be exported to a JSON file with a straight call to
-    ``json.dump``.
-
-    Returns:
-        (dict): a dictionary that complies with the speedscope JSON schema.
-    """
-    return _generate_json(*_generate_profiles(source), name)
+    def dump(self, stream: TextIO) -> None:
+        """Dump the pprof protobuf message to the given binary stream."""
+        json.dump(
+            self.asdict(), stream, indent=self.indent,
+        )
 
 
 def main() -> None:
@@ -185,16 +182,21 @@ def main() -> None:
 
     args = arg_parser.parse_args()
 
+    speedscope = Speedscope(os.path.basename(args.input), args.indent)
     try:
         with open(args.input, "r") as fin:
-            json.dump(
-                to_speedscope(fin, os.path.basename(args.input)),
-                open(args.output, "w"),
-                indent=args.indent,
-            )
+            for line in fin:
+                try:
+                    speedscope.add_sample(Sample.parse(line))
+                except InvalidSample:
+                    continue
+
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
         exit(1)
+
+    with open(args.output, "w") as fout:
+        speedscope.dump(fout)
 
 
 if __name__ == "__main__":

@@ -23,7 +23,7 @@
 
 from dataclasses import dataclass, field
 import re
-from typing import Any, Dict, List, Optional, TextIO
+from typing import Any, Dict, List, Optional, TextIO, Type
 
 from austin import AustinError
 
@@ -78,11 +78,14 @@ class Metrics:
 
     def copy(self) -> "Metrics":
         """Make a copy of this object."""
-        return self + Metrics()
+        return self + ZERO
 
     def __str__(self) -> str:
         """Stringify the metrics."""
         return f"{self.time} {self.memory_alloc} {self.memory_dealloc}"
+
+
+ZERO = Metrics()
 
 
 @dataclass(frozen=True)
@@ -261,9 +264,9 @@ class ThreadStats(HierarchicalStats):
     label: ThreadName
     children: Dict[Frame, FrameStats] = field(default_factory=dict)
 
-    def collapse(self) -> List[str]:
+    def collapse(self, prefix: str = "T") -> List[str]:
         """Collapse the hierarchical statistics."""
-        return super().collapse("T")
+        return super().collapse(prefix)
 
 
 @dataclass
@@ -306,7 +309,12 @@ class AustinStats:
     def dump(self, stream: TextIO) -> None:
         """Dump the statistics to the given text stream."""
         for _, process in self.processes.items():
-            for sample in process.collapse():
+            samples = process.collapse()
+
+            if all(sample.endswith(" 0 0") for sample in samples):
+                samples = [sample[:-4] for sample in samples]
+
+            for sample in samples:
                 stream.write(sample + "\n")
 
     def get_process(self, pid: ProcessId) -> ProcessStats:
@@ -314,7 +322,7 @@ class AustinStats:
         return self.processes[pid]
 
     @classmethod
-    def load(cls: "AustinStats", stream: TextIO) -> "AustinStats":
+    def load(cls: Type["AustinStats"], stream: TextIO) -> "AustinStats":
         """Load statistics from the given text stream."""
         stats = cls()
         for line in stream:

@@ -34,8 +34,8 @@ from austin.stats import (
 )
 
 
-DUMP_LOAD_SAMPLES = """P42;T0x7f45645646;foo (foo_module.py:10) 300 0 0
-P42;T0x7f45645646;foo (foo_module.py:10);bar (bar_sample.py:20) 1000 0 0
+DUMP_LOAD_SAMPLES = """P42;T0x7f45645646;foo (foo_module.py:10) 300
+P42;T0x7f45645646;foo (foo_module.py:10);bar (bar_sample.py:20) 1000
 """
 
 

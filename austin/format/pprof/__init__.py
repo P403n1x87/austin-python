@@ -41,6 +41,7 @@ MEMORY_UNIT = "B"
 
 class Mode(Enum):
     """Austin profiling mode."""
+
     TIME = 0
     MEMORY = 1
     FULL = 2
@@ -51,6 +52,7 @@ class PProf:
 
     Used to convert Austin collapsed format into the pprof protobuf format.
     """
+
     def __init__(self, mode: Mode = Mode.TIME) -> None:
         self._string_table: Dict[str, int] = {}
         self._location_map: Dict[Frame, int] = {}
@@ -152,6 +154,6 @@ class PProf:
         for frame in sample.frames[::-1]:
             pprof_sample.location_id.append(self.get_location(frame))
 
-    def dump(self, file: BinaryIO) -> None:
+    def dump(self, stream: BinaryIO) -> None:
         """Dump the pprof protobuf message to the given binary stream."""
-        file.write(self.profile.SerializeToString())
+        stream.write(self.profile.SerializeToString())

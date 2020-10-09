@@ -1,7 +1,9 @@
 <p align="center">
-  <br>
-  <img src="docs/source/images/logo.png" alt="Austin">
-  <br>
+  <br/>
+  <img src="docs/source/images/logo.png"
+       alt="Austin"
+       height="256px" />
+  <br/>
 </p>
 
 <h3 align="center">Python wrapper for Austin, the frame stack sampler for CPython</h3>
@@ -10,6 +12,10 @@
   <a href="https://github.com/P403n1x87/austin-python/actions?workflow=Tests">
     <img src="https://github.com/P403n1x87/austin-python/workflows/Tests/badge.svg"
          alt="GitHub Actions: Tests">
+  </a>
+  <a href="https://travis-ci.com/P403n1x87/austin-python">
+    <img src="https://travis-ci.com/P403n1x87/austin-python.svg?token=fzW2yzQyjwys4tWf9anS"
+         alt="Travis CI">
   </a>
   <a href="https://codecov.io/gh/P403n1x87/austin-python">
     <img src="https://codecov.io/gh/P403n1x87/austin-python/branch/master/graph/badge.svg"
@@ -21,7 +27,7 @@
   </a>
   <a href="https://austin-python.readthedocs.io/">
     <img src="https://readthedocs.org/projects/austin-python/badge/"
-         alt="LICENSE">
+         alt="Documentation">
   </a>
   <a href="https://github.com/P403n1x87/austin-python/blob/master/LICENSE.md">
     <img src="https://img.shields.io/badge/license-GPLv3-ff69b4.svg"
@@ -30,99 +36,127 @@
 </p>
 
 <p align="center">
-  <a href="https://snapcraft.io/austin" title="Get it from the Snap Store">
-    <img src="https://snapcraft.io/static/images/badges/en/snap-store-black.svg" alt="" />
-  </a>
-</p>
-
-<p align="center">
   <a href="#synopsis"><b>Synopsis</b></a>&nbsp;&bull;
   <a href="#installation"><b>Installation</b></a>&nbsp;&bull;
   <a href="#usage"><b>Usage</b></a>&nbsp;&bull;
   <a href="#compatibility"><b>Compatibility</b></a>&nbsp;&bull;
-  <a href="#why--austin"><b>Why <img src="art/austin_logo.svg" height="20px" /> Austin</b></a>&nbsp;&bull;
-  <a href="#examples"><b>Examples</b></a>&nbsp;&bull;
+  <a href="#documentation"><b>Documentation</b></a>&nbsp;&bull;
   <a href="#contribute"><b>Contribute</b></a>
 </p>
 
 <p align="center">
-  <a href="https://www.patreon.com/bePatron?u=19221563">
-    <img src="https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.herokuapp.com%2FP403n1x87&style=for-the-badge" />
-  </a><br/>
-
   <a href="https://www.buymeacoffee.com/Q9C1Hnm28" target="_blank">
     <img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" />
   </a>
 </p>
 
 
-<!--
-
-![austin](art/austin.png)
-
-<h3 align="center">A frame stack sampler for CPython</h3>
-
-[![Build Status](https://travis-ci.org/P403n1x87/austin.svg?branch=master)](https://travis-ci.org/P403n1x87/austin) ![Version](https://img.shields.io/badge/version-1.0.0-blue.svg) [![License](https://img.shields.io/badge/license-GPLv3-ff69b4.svg)](https://github.com/P403n1x87/austin/blob/master/LICENSE.md)
-
--->
-
-
 # Synopsis
 
+The `austin-python` package is a Python wrapper around the Austin binary that
+provides convenience classes to quickly develop your statistical profiling
+tools. Whether your code is thread-based or asynchronous, `austin-python` has
+you covered. This is, for instance, how you would turn Austin into a Python
+application:
+
+~~~ python
+from austin.aio import AsyncAustin
+
+
+# Make your sub-class of AsyncAustin
+class EchoAsyncAustin(AsyncAustin):
+    def on_ready(self, process, child_process, command_line):
+        print(f"Austin PID: {process.pid}")
+        print(f"Python PID: {child_process.pid}")
+        print(f"Command Line: {command_line}")
+
+    def on_sample_received(self, line):
+        print(line)
+
+    def on_terminate(self, data):
+        print(data)
+
+
+# Use the Proactor event loop on Windows
+if sys.platform == "win32":
+    asyncio.set_event_loop(asyncio.ProactorEventLoop())
+
+try:
+    # Start the Austin application with some command line arguments
+    austin = EchoAsyncAustin()
+    asyncio.get_event_loop().run_until_complete(
+        austin.start(["-i", "10000", "python3", "myscript.py"])
+    )
+except (KeyboardInterrupt, asyncio.CancelledError):
+    pass
+~~~
+
+The `austin-python` package is at the heart of the [Austin
+TUI](https://github.com/P403n1x87/austin-tui) and the [Austin
+Web](https://github.com/P403n1x87/austin-web) Python applications. Go check them
+out if you are looking for full-fledged usage examples.
+
+Included with the package come two applications for the conversion of Austin
+collected output, which is in the form of [collapsed
+stacks](https://github.com/brendangregg/FlameGraph), to either the
+[Speedscope](https://speedscope.app/) JSON format or the [Google pprof
+format](https://github.com/google/pprof). Note, however, that the Speedscope web
+application supports Austin native format directly.
 
 
 # Installation
 
+This package can be installed from PyPI with
+
+~~~ bash
+pip install --user austin-python --upgrade
+~~~
+
 
 # Usage
+
+A simple example of an echo application was shown above. Other examples using,
+e.g., threads, can be found in the official documentation. YOu can also browse
+through the code of the [Austin TUI](https://github.com/P403n1x87/austin-tui)
+and the [Austin Web](https://github.com/P403n1x87/austin-web) Python
+applications to see how they leverage `austin-python`.
+
+## Format conversion
+
+As it was mentioned before, this package also comes with two scripts for format
+conversion, namely `austin2speedscope` and `austin2pprof`. They both take two
+mandatory arguments, that is, the input and output file. For example, to convert
+the Austin profile data file `myscript.aprof` to the Google pprof data file
+`myscript.pprof`, you can run
+
+~~~ bash
+austin2pprof myscript.aprof myscript.pprof
+~~~
 
 
 # Compatibility
 
+The `austin-python` package is tested on Linux, macOS and Windows with Python
+3.6-3.9.
 
 
+# Documentation
 
-# Examples
+The official documentation is hosted on readthedocs.io at
+[austin-python.readthedocs.io](https://austin-python.readthedocs.io/).
 
-
-
-## Speedscope
-
-Austin output format can be converted easily into the
-[Speedscope](speedscope.app) JSON format. You can find a sample utility along
-with the TUI and Austin Web.
-
-If you want to give it a go you can install it using `pip` with
-
-~~~ bash
-pip install git+https://github.com/P403n1x87/austin.git --upgrade
-~~~
-
-and run it with
-
-~~~ bash
-austin2speedscope [-h] [--indent INDENT] [-V] input output
-~~~
-
-where `input` is a file containing the output from Austin and `output` is the
-name of the JSON file to use to save the result of the conversion, ready to be
-used on [Speedscope](speedscope.app).
-
-<p align="center"><img src="art/speedscope.png" /></p>
 
 # Contribute
-
-If you like Austin and you find it useful, there are ways for you to contribute.
 
 If you want to help with the development, then have a look at the open issues
 and have a look at the [contributing guidelines](CONTRIBUTING.md) before you
 open a pull request.
 
-You can also contribute to the development of Austin by either [becoming a
+You can also contribute to the development by either [becoming a
 Patron](https://www.patreon.com/bePatron?u=19221563) on Patreon
 
-<a href="https://www.patreon.com/bePatron?u=19221563">
-  <img src="https://img.shields.io/endpoint.svg?url=https%3A%2F%2Fshieldsio-patreon.herokuapp.com%2FP403n1x87&style=for-the-badge" />
+<a href="https://www.patreon.com/bePatron?u=19221563" target="_blank">
+  <img src="https://c5.patreon.com/external/logo/become_a_patron_button.png" alt="Become a Patron" />
 </a><br/>
 
 by [buying me a coffee](https://www.buymeacoffee.com/Q9C1Hnm28) on BMC

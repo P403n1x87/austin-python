@@ -114,7 +114,8 @@ class AsyncAustin(BaseAustin):
                 data = await self.proc.stdout.readline()
                 if not data:
                     break
-                self._sample_callback(data.decode().rstrip())
+
+                self.submit_sample(data)
 
         finally:
             # Wait for the subprocess to terminate

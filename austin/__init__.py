@@ -24,7 +24,6 @@
 
 from abc import ABC, abstractmethod
 import argparse
-import signal
 from typing import Any, Callable, List, Optional, Tuple
 
 import psutil
@@ -92,12 +91,12 @@ class BaseAustin(ABC):
     def _get_process_info(
         self, args: argparse.Namespace, austin_pid: int
     ) -> Tuple[psutil.Process, psutil.Process, str]:
-        if not args.pid:  # Austin is forking
-            try:
-                self._proc = psutil.Process(austin_pid)
-            except psutil.NoSuchProcess:
-                raise AustinError("Cannot find Austin process.")
+        try:
+            self._proc = psutil.Process(austin_pid)
+        except psutil.NoSuchProcess:
+            raise AustinError("Cannot find Austin process.")
 
+        if not args.pid:  # Austin is forking
             try:
                 self._child_proc = self._proc.children()[0]
                 if self._child_proc is None:
@@ -113,6 +112,8 @@ class BaseAustin(ABC):
                 )
 
         self._cmd_line = " ".join(self._child_proc.cmdline())
+
+        self._running = True
 
         return self._proc, self._child_proc, self._cmd_line
 
@@ -145,7 +146,7 @@ class BaseAustin(ABC):
         """Determine whether Austin is running."""
         return self._running
 
-    def terminate(self, force: bool = True) -> None:
+    def terminate(self, wait: bool = False) -> None:
         """Terminate Austin.
 
         Stop the underlying Austin process by sending a termination signal.
@@ -154,7 +155,9 @@ class BaseAustin(ABC):
             raise AustinError("Austin has not been started yet")
 
         try:
-            self._proc.send_signal(signal.SIGTERM)
+            self._proc.terminate()
+            if wait:
+                self._proc.wait()
         except psutil.NoSuchProcess:
             raise AustinError("Austin has already terminated")
 
@@ -169,6 +172,22 @@ class BaseAustin(ABC):
         process being profiled by Austin at the OS level.
         """
         return self._child_proc
+
+    def submit_sample(self, data: bytes) -> None:
+        """Submit a sample to the sample callback.
+
+        This method takes care of converting the raw binary data retrieved from
+        Austin into a Python string.
+        """
+        try:
+            sample = data.decode()
+        except UnicodeDecodeError:
+            try:
+                sample = data.decode("ascii")
+            except UnicodeDecodeError:
+                return
+
+        self._sample_callback(sample.rstrip())
 
     # ---- Default callbacks ----
 

@@ -64,8 +64,7 @@ def test_sample_parser_valid():
     )
 
     assert Sample.parse(
-        "P123;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) "
-        "42 43 -44"
+        "P123;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) " "42 43 -44"
     ) == Sample(
         123,
         "0x7f546684",
@@ -95,9 +94,7 @@ def test_sample_parser_invalid():
         Sample.parse("foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44")
 
     with raises(InvalidSample):  # With PID but missing Thread
-        Sample.parse(
-            "P123;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44"
-        )
+        Sample.parse("P123;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44")
 
     with raises(InvalidSample):  # Completely bonkers
         Sample.parse("snafu")
@@ -113,3 +110,14 @@ def test_sample_parser_invalid():
 
     with raises(InvalidSample):  # Too many metrics
         Sample.parse("P1;T0x7f546684;foo (foo_module.py:10) 10 20 30 40")
+
+
+def test_capital_ell():
+    assert Sample.parse(
+        "P1;T0x7f546684;foo (foo_module.py:10);Loo (loo_module.py:20) 10"
+    ) == Sample(
+        1,
+        "0x7f546684",
+        Metrics(10),
+        [Frame("foo", "foo_module.py", 10), Frame("Loo", "loo_module.py", 20)],
+    )

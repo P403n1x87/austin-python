@@ -33,12 +33,13 @@ repository = "https://github.com/P403n1x87/austin-python"
 documentation = "https://austin-python.readthedocs.io"
 keywords = ["performance", "profiling", "testing", "development"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GPLv3",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3.6",
   "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
 ]
 packages = [
     { include = "austin" },
@@ -49,18 +50,18 @@ austin2speedscope = "austin.format.speedscope:main"
 austin2pprof = "austin.format.pprof.__main__:main"
 
 [tool.poetry.dependencies]
-python = ">=3.6"
+python = "^3.6"
 dataclasses = "*"
 psutil = ">=5.7.0"
 protobuf = "^3.12.2"
 
 [tool.poetry.dev-dependencies]
-coverage = {extras = ["toml"], version = "*"}
+coverage = {extras = ["toml"], version = "^5.2"}
 pytest = ">=5.4.2"
 pytest-cov = ">=2.8.1"
 sphinx = "^3.0.4"
 sphinx-autodoc-typehints = "^1.10.3"
-nox = "^2020.5.24"
+nox = "^2020.8.22"
 mypy = "^0.770"
 codecov = "^2.1.3"
 

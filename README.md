@@ -137,7 +137,7 @@ austin2pprof myscript.aprof myscript.pprof
 # Compatibility
 
 The `austin-python` package is tested on Linux, macOS and Windows with Python
-3.6, 3.7 and 3.8.
+3.6-3.9.
 
 
 # Documentation

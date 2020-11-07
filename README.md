@@ -131,7 +131,7 @@ lookup locations are, in order,
 A sample `.austinrc` file would look like so
 
 ~~~ toml
-binary = /path/to/austin
+binary = "/path/to/austin"
 ~~~
 
 

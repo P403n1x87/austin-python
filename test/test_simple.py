@@ -112,7 +112,7 @@ def test_binary_path_cwd():
 
 def test_binary_path_austinpath():
     with tempfile.TemporaryDirectory() as tempdir:
-        old_path = os.environ["AUSTINPATH"]
+        old_path = os.environ.get("AUSTINPATH")
 
         os.environ["AUSTINPATH"] = tempdir
         temp_binary = os.path.join(os.environ["AUSTINPATH"], TestSimpleAustin.BINARY)
@@ -121,13 +121,14 @@ def test_binary_path_austinpath():
 
         assert_binary_path(temp_binary)
 
-        os.environ["AUSTINPATH"] = old_path
+        if old_path is not None:
+            os.environ["AUSTINPATH"] = old_path
 
 
 def test_binary_path_rc():
     with tempfile.TemporaryDirectory() as tempdir:
         old_home = os.environ["HOME"]
-        old_path = os.environ["AUSTINPATH"]
+        old_path = os.environ.get("AUSTINPATH")
         del os.environ["AUSTINPATH"]
 
         home = os.environ["HOME"] = tempdir
@@ -139,5 +140,6 @@ def test_binary_path_rc():
 
         assert_binary_path(AC.RC)
 
-        os.environ["AUSTINPATH"] = old_path
+        if old_path is not None:
+            os.environ["AUSTINPATH"] = old_path
         os.environ["HOME"] = old_home

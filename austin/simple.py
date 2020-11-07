@@ -72,7 +72,7 @@ class SimpleAustin(BaseAustin):
         """Start the Austin process."""
         try:
             self.proc = subprocess.Popen(
-                [self.BINARY] + (args or sys.argv[1:]),
+                [self.binary_path] + (args or sys.argv[1:]),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )

@@ -6,30 +6,36 @@
   <br/>
 </p>
 
-<h3 align="center">Python wrapper for Austin, the frame stack sampler for CPython</h3>
+<h3 align="center">Python wrapper for Austin</h3>
 
 <p align="center">
   <a href="https://github.com/P403n1x87/austin-python/actions?workflow=Tests">
     <img src="https://github.com/P403n1x87/austin-python/workflows/Tests/badge.svg"
          alt="GitHub Actions: Tests">
   </a>
-  <a href="https://travis-ci.com/P403n1x87/austin-python">
-    <img src="https://travis-ci.com/P403n1x87/austin-python.svg?token=fzW2yzQyjwys4tWf9anS"
+  <a href="https://travis-ci.org/P403n1x87/austin-python">
+    <img src="https://travis-ci.org/P403n1x87/austin-python.svg?branch=main"
          alt="Travis CI">
   </a>
   <a href="https://codecov.io/gh/P403n1x87/austin-python">
-    <img src="https://codecov.io/gh/P403n1x87/austin-python/branch/master/graph/badge.svg"
+    <img src="https://codecov.io/gh/P403n1x87/austin-python/branch/main/graph/badge.svg"
          alt="Codecov">
-  </a>
-  <a href="https://pypi.org/project/austin-python/">
-    <img src="https://img.shields.io/pypi/v/austin-python.svg"
-         alt="PyPI">
   </a>
   <a href="https://austin-python.readthedocs.io/">
     <img src="https://readthedocs.org/projects/austin-python/badge/"
          alt="Documentation">
   </a>
-  <a href="https://github.com/P403n1x87/austin-python/blob/master/LICENSE.md">
+  <br/>
+  <a href="https://pypi.org/project/austin-python/">
+    <img src="https://img.shields.io/pypi/v/austin-python.svg"
+         alt="PyPI">
+  </a>
+  <a href="https://pepy.tech/project/austin-python">
+    <img src="https://static.pepy.tech/personalized-badge/austin-python?period=total&units=international_system&left_color=grey&right_color=blue&left_text=downloads"
+         alt="Downloads" />
+  <a/>
+  <br/>
+  <a href="https://github.com/P403n1x87/austin-python/blob/main/LICENSE.md">
     <img src="https://img.shields.io/badge/license-GPLv3-ff69b4.svg"
          alt="LICENSE">
   </a>
@@ -53,7 +59,7 @@
 
 # Synopsis
 
-The `austin-python` package is a Python wrapper around the Austin binary that
+The `austin-python` package is a Python wrapper around the [Austin] binary that
 provides convenience classes to quickly develop your statistical profiling
 tools. Whether your code is thread-based or asynchronous, `austin-python` has
 you covered. This is, for instance, how you would turn Austin into a Python
@@ -112,11 +118,27 @@ This package can be installed from PyPI with
 pip install --user austin-python --upgrade
 ~~~
 
+Please note that `austin-python` requires the [Austin] binary. The default
+lookup locations are, in order,
+
+- current working directory;
+- the `AUSTINPATH` environment variable which gives the path to the folder that
+  contains the Austin binary;
+- the `.austinrc` TOML configuration file in the user's home folder, e.g.
+  `~/.austinrc` on Linux (see below for a sample `.austinrc` file);
+- the `PATH` environment variable.
+
+A sample `.austinrc` file would look like so
+
+~~~ toml
+binary = /path/to/austin
+~~~
+
 
 # Usage
 
 A simple example of an echo application was shown above. Other examples using,
-e.g., threads, can be found in the official documentation. YOu can also browse
+e.g., threads, can be found in the official documentation. You can also browse
 through the code of the [Austin TUI](https://github.com/P403n1x87/austin-tui)
 and the [Austin Web](https://github.com/P403n1x87/austin-web) Python
 applications to see how they leverage `austin-python`.
@@ -133,6 +155,8 @@ the Austin profile data file `myscript.aprof` to the Google pprof data file
 austin2pprof myscript.aprof myscript.pprof
 ~~~
 
+The package also provide the `austin-compress` utility to compress the Austin
+raw samples by aggregation.
 
 # Compatibility
 
@@ -153,17 +177,16 @@ and have a look at the [contributing guidelines](CONTRIBUTING.md) before you
 open a pull request.
 
 You can also contribute to the development by either [becoming a
-Patron](https://www.patreon.com/bePatron?u=19221563) on Patreon
+Patron](https://www.patreon.com/bePatron?u=19221563) on Patreon, by [buying me a
+coffee](https://www.buymeacoffee.com/Q9C1Hnm28) on BMC or by chipping in a few
+pennies on [PayPal.Me](https://www.paypal.me/gtornetta/1).
 
-<a href="https://www.patreon.com/bePatron?u=19221563" target="_blank">
-  <img src="https://c5.patreon.com/external/logo/become_a_patron_button.png" alt="Become a Patron" />
-</a><br/>
+<p align="center">
+  <a href="https://www.buymeacoffee.com/Q9C1Hnm28" target="_blank">
+    <img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png"
+         alt="Buy Me A Coffee" />
+  </a>
+</p>
 
-by [buying me a coffee](https://www.buymeacoffee.com/Q9C1Hnm28) on BMC
 
-<a href="https://www.buymeacoffee.com/Q9C1Hnm28" target="_blank">
-  <img src="https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png" alt="Buy Me A Coffee" />
-</a>
-
-or by chipping in a few pennies on
-[PayPal.Me](https://www.paypal.me/gtornetta/1).
+[Austin]: https://github.com/p403n1x87/austin

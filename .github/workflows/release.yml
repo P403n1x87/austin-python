@@ -36,5 +36,5 @@ jobs:
           export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
           nox
 
-      - run: poetry build
-      - run: poetry publish --username=__token__ --password=${{ secrets.PYPI_TOKEN }}
+      - run: cd $GITHUB_WORKSPACE/main && poetry build
+      - run: cd $GITHUB_WORKSPACE/main && poetry publish --username=__token__ --password=${{ secrets.PYPI_TOKEN }}

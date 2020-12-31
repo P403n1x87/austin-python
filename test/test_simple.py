@@ -67,7 +67,9 @@ class InvalidBinarySimpleAustin(SimpleAustin):
 def test_simple():
     austin = TestSimpleAustin()
 
-    austin.start(["-i", "1000", "python", "-c", "for i in range(1000000): print(i)"])
+    austin.start(
+        ["-t", "10", "-Ci", "1000", "python", "-c", "for i in range(1000000): print(i)"]
+    )
 
     austin.assert_callbacks_called()
 

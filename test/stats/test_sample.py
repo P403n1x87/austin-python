@@ -26,18 +26,19 @@ from pytest import raises
 
 
 def test_sample_alt_format():
-    Sample.parse(
+    assert Sample.parse(
         "P1;T7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;"
         "_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;"
         "run (/usr/lib/python3.6/threading.py);L864;"
         "keep_cpu_busy (test/target34.py);L31 "
         "10085"
     ) == Sample(
-        0,
+        1,
         "7fdf1b437700",
         Metrics(10085),
         [
             Frame.parse("_bootstrap (/usr/lib/python3.6/threading.py:884)"),
+            Frame.parse("_bootstrap_inner (/usr/lib/python3.6/threading.py:916)"),
             Frame.parse("run (/usr/lib/python3.6/threading.py:864)"),
             Frame.parse("keep_cpu_busy (test/target34.py:31)"),
         ],

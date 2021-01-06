@@ -24,9 +24,19 @@
 
 from abc import ABC, abstractmethod
 import argparse
+import functools
+import os
+import os.path
 from typing import Any, Callable, List, Optional, Tuple
 
+from austin.config import AustinConfiguration
 import psutil
+
+
+try:
+    _cached = functools.cache
+except AttributeError:
+    _cached = functools.lru_cache(maxsize=1)
 
 
 class AustinError(Exception):
@@ -215,6 +225,42 @@ class BaseAustin(ABC):
         the command line of the latter.
         """
         pass
+
+    # ---- Properties ----
+
+    @property
+    @_cached
+    def binary_path(self) -> str:
+        """Discover the path of the Austin binary.
+
+        Lookup order is:
+        - current working directory
+        - ``AUSTINPATH`` variable
+        - ``~/.austinrc`` file
+        - ``PATH`` variable.
+        """
+        binary_name = self.BINARY + (os.name == "nt" and ".exe" or "")
+
+        # Try CWD
+        binary_path = os.path.join(os.getcwd(), binary_name)
+        if os.path.isfile(binary_path):
+            return binary_path
+
+        # Try with AUSTINPATH variable
+        austin_path = os.environ.get("AUSTINPATH", None)
+        if austin_path:
+            binary_path = os.path.join(os.path.expanduser(austin_path), binary_name)
+            if os.path.isfile(binary_path):
+                return binary_path
+
+        # Try with .austinrc file
+        if AustinConfiguration().binary is not None:
+            binary_path = os.path.expanduser(AustinConfiguration().binary)
+            if os.path.isfile(binary_path):
+                return binary_path
+
+        # Try from PATH
+        return self.BINARY
 
     @property
     def version(self) -> Optional[str]:

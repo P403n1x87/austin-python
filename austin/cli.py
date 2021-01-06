@@ -22,7 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from argparse import ArgumentParser, Namespace, REMAINDER
-from typing import Any, List, NoReturn
+from typing import Any, Callable, List, NoReturn
 
 from austin import AustinError
 
@@ -53,6 +53,7 @@ class AustinArgumentParser(ArgumentParser):
         alt_format: bool = True,
         children: bool = True,
         exclude_empty: bool = True,
+        exposure: bool = True,
         full: bool = True,
         interval: bool = True,
         memory: bool = True,
@@ -63,6 +64,21 @@ class AustinArgumentParser(ArgumentParser):
         **kwargs: Any,
     ) -> None:
         super().__init__(prog=name, **kwargs)
+
+        def time(units: str) -> Callable[[str], int]:
+            """Parse time argument with units."""
+            base = {"us": 1, "ms": 1e3, "s": 1e6}[units]
+
+            def parser(arg: str) -> int:
+                if arg.endswith("us"):
+                    return int(arg[:-2]) // base
+                if arg.endswith("ms"):
+                    return int(arg[:-2]) * 1000 // base
+                if arg.endswith("s"):
+                    return int(arg[:-1]) * 1000000 // base
+                return int(arg)
+
+            return parser
 
         if not (pid and command):
             raise AustinCommandLineError(
@@ -94,6 +110,15 @@ class AustinArgumentParser(ArgumentParser):
                 action="store_true",
             )
 
+        if exposure:
+            self.add_argument(
+                "-x",
+                "--exposure",
+                help="Sample for the given number of seconds only.",
+                type=time("s"),
+                default=None,
+            )
+
         if full:
             self.add_argument(
                 "-f",
@@ -107,7 +132,7 @@ class AustinArgumentParser(ArgumentParser):
                 "-i",
                 "--interval",
                 help="Sampling interval (default is 100 μs).",
-                type=int,
+                type=time("us"),
             )
 
         if memory:
@@ -134,7 +159,7 @@ class AustinArgumentParser(ArgumentParser):
                 "--timeout",
                 help="Approximate start up wait time. Increase on slow machines "
                 "(default is 100 ms).",
-                type=int,
+                type=time("ms"),
             )
 
         if command:

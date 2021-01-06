@@ -21,9 +21,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import os.path
+import tempfile
+
 from austin import AustinError
+from austin.config import AustinConfiguration as AC
 from austin.simple import SimpleAustin
 from pytest import raises
+import toml
 
 
 class TestSimpleAustin(SimpleAustin):
@@ -61,7 +67,9 @@ class InvalidBinarySimpleAustin(SimpleAustin):
 def test_simple():
     austin = TestSimpleAustin()
 
-    austin.start(["-i", "1000", "python", "-c", "for i in range(1000000): print(i)"])
+    austin.start(
+        ["-t", "10", "-Ci", "1000", "python", "-c", "for i in range(1000000): print(i)"]
+    )
 
     austin.assert_callbacks_called()
 
@@ -85,3 +93,55 @@ def test_simple_bad_options():
         austin.start(
             ["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"]
         )
+
+
+def assert_binary_path(path):
+    assert TestSimpleAustin().binary_path == path
+
+
+def test_binary_path_cwd():
+    with tempfile.TemporaryDirectory() as tempdir:
+        old_cwd = os.getcwd()
+        os.chdir(tempdir)
+
+        with open(TestSimpleAustin.BINARY, "w") as fout:
+            fout.write("Hello")
+
+        assert_binary_path(os.path.join(os.getcwd(), TestSimpleAustin.BINARY))
+
+        os.chdir(old_cwd)
+
+
+def test_binary_path_austinpath():
+    with tempfile.TemporaryDirectory() as tempdir:
+        old_path = os.environ.get("AUSTINPATH")
+
+        os.environ["AUSTINPATH"] = tempdir
+        temp_binary = os.path.join(os.environ["AUSTINPATH"], TestSimpleAustin.BINARY)
+        with open(temp_binary, "w") as fout:
+            fout.write("Hello")
+
+        assert_binary_path(temp_binary)
+
+        if old_path is not None:
+            os.environ["AUSTINPATH"] = old_path
+
+
+def test_binary_path_rc():
+    with tempfile.TemporaryDirectory() as tempdir:
+        old_home = os.environ["HOME"]
+        old_path = os.environ.get("AUSTINPATH")
+        del os.environ["AUSTINPATH"]
+
+        home = os.environ["HOME"] = tempdir
+        AC.RC = os.path.join(home, ".austinrc")
+        with open(AC.RC, "w") as fout:
+            toml.dump({"binary": AC.RC}, fout)
+
+        AC().reload()
+
+        assert_binary_path(AC.RC)
+
+        if old_path is not None:
+            os.environ["AUSTINPATH"] = old_path
+        os.environ["HOME"] = old_home

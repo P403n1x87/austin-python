@@ -82,7 +82,7 @@ class AsyncAustin(BaseAustin):
         """
         try:
             self.proc = await asyncio.create_subprocess_exec(
-                self.BINARY,
+                self.binary_path,
                 *(args or sys.argv[1:]),
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,

@@ -50,7 +50,7 @@ pygments_style = "sphinx"
 #
 html_title = "Austin Python Documentation"
 html_theme = "alabaster"
-html_logo = "images/logo.svg"
+html_logo = "images/logo.png"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -61,9 +61,13 @@ html_theme_options = {
     "github_repo": "austin-python",
     "github_banner": True,
     "github_button": True,
-    "donate_url": "https://www.buymeacoffee.com/Q9C1Hnm28",
+    "github_type": "star",
+    "codecov_button": True,
+    "travis_button": True,
+    "donate_url": "https://github.com/sponsors/P403n1x87",
+    "fixed_sidebar": True,
 }
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+# html_static_path = ["_static"]

@@ -72,7 +72,17 @@ def test_async_time():
     austin = TestAsyncAustin()
 
     asyncio.get_event_loop().run_until_complete(
-        austin.start(["-i", "100", "python", "-c", "for i in range(1000000): print(i)"])
+        austin.start(
+            [
+                "-t",
+                "10",
+                "-Ci",
+                "100",
+                "python",
+                "-c",
+                "for i in range(1000000): print(i)",
+            ]
+        )
     )
 
     austin.assert_callbacks_called()
@@ -90,7 +100,15 @@ def test_async_memory():
     austin._sample_callback = sample_callback
     asyncio.get_event_loop().run_until_complete(
         austin.start(
-            ["-mi", "100", "python", "-c", "for i in range(1000000): print(i)"]
+            [
+                "-t",
+                "10",
+                "-mCi",
+                "100",
+                "python",
+                "-c",
+                "for i in range(1000000): print(i)",
+            ]
         )
     )
     austin.assert_callbacks_called()
@@ -111,7 +129,7 @@ def test_async_terminate():
 
     try:
         asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(austin.start(["-i", "10000", "python"]), 5)
+            asyncio.wait_for(austin.start(["-t", "10", "-Ci", "10000", "python"]), 5)
         )
     except AustinError:
         austin.assert_callbacks_called()

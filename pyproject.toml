@@ -23,7 +23,7 @@
 
 [tool.poetry]
 name = "austin-python"
-version = "0.1.0"
+version = "0.2.0"
 description = "Python wrapper for Austin, the frame stack sampler for CPython"
 license = "GPL-3.0-or-later"
 authors = ["Gabriele N. Tornetta <phoenix1987@gmail.com>"]
@@ -46,6 +46,7 @@ packages = [
 ]
 
 [tool.poetry.scripts]
+austin-compress = "austin.format.compress:main"
 austin2speedscope = "austin.format.speedscope:main"
 austin2pprof = "austin.format.pprof.__main__:main"
 
@@ -54,6 +55,7 @@ python = "^3.6"
 dataclasses = "*"
 psutil = ">=5.7.0"
 protobuf = "^3.12.2"
+toml = "^0.10.2"
 
 [tool.poetry.dev-dependencies]
 coverage = {extras = ["toml"], version = "^5.2"}

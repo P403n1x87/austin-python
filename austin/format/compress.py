@@ -21,7 +21,23 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from typing import TextIO
+
 from austin.stats import AustinStats, InvalidSample, Sample
+
+
+def compress(source: TextIO, dest: TextIO) -> None:
+    """Compress the source stream.
+
+    Aggregates the metrics on equal collapsed stacks.
+    """
+    stats = AustinStats()
+    for line in source:
+        try:
+            stats.update(Sample.parse(line))
+        except InvalidSample:
+            continue
+    stats.dump(dest)
 
 
 def main() -> None:
@@ -36,7 +52,9 @@ def main() -> None:
     )
 
     arg_parser.add_argument(
-        "input", type=str, help="The input file containing Austin samples.",
+        "input",
+        type=str,
+        help="The input file containing Austin samples.",
     )
     arg_parser.add_argument(
         "output",
@@ -48,21 +66,12 @@ def main() -> None:
 
     args = arg_parser.parse_args()
 
-    stats = AustinStats()
     try:
-        with open(args.input, "r") as fin:
-            for line in fin:
-                try:
-                    stats.add_sample(Sample.parse(line))
-                except InvalidSample:
-                    continue
-
+        with open(args.input, "r") as fin, open(args.output or args.input, "w") as fout:
+            compress(fin, fout)
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
         exit(1)
-
-    with open(args.output or args.input, "w") as fout:
-        stats.dump(fout)
 
 
 if __name__ == "__main__":

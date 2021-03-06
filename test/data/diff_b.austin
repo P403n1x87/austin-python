@@ -1,0 +1,2 @@
+P403;Tx87;base (__main__.py:2);middle (utils.py:5);top (logging.py:42) 10
+P403;Tx87;base (__main__.py:2);middle (utils.py:5);pop (logging.py:82) 50

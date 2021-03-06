@@ -76,9 +76,52 @@ class Metrics:
             self.memory_dealloc + other.memory_dealloc,
         )
 
+    def __sub__(self, other: "Metrics") -> "Metrics":
+        """Subtract metrics (algebraically and component-wise)."""
+        return Metrics(
+            self.time - other.time,
+            self.memory_alloc - other.memory_alloc,
+            self.memory_dealloc - other.memory_dealloc,
+        )
+
+    def __gt__(self, other: "Metrics") -> "Metrics":
+        """Strict comparison of metrics."""
+        return (
+            self.time > other.time
+            and self.memory_alloc > other.memory_alloc
+            and self.memory_dealloc > other.memory_dealloc
+        )
+
+    def __ge__(self, other: "Metrics") -> "Metrics":
+        """Comparison of metrics."""
+        return (
+            self.time >= other.time
+            and self.memory_alloc >= other.memory_alloc
+            and self.memory_dealloc >= other.memory_dealloc
+        )
+
     def copy(self) -> "Metrics":
         """Make a copy of this object."""
         return self + ZERO
+
+    @staticmethod
+    def parse(sample: str) -> "Metrics":
+        """Parse the metrics from a sample.
+
+        Returns a tuple containing the parsed metrics and the head of the
+        sample for further processing.
+        """
+        try:
+            head, *metrics = sample.rsplit(maxsplit=3)
+            int(metrics[-3])
+        except (ValueError, IndexError):
+            # Time/memory metrics
+            head, *metrics = sample.rsplit(maxsplit=1)
+
+        try:
+            return Metrics(*(int(metric) for metric in metrics)), head
+        except ValueError:
+            raise InvalidSample(sample)
 
     def __str__(self) -> str:
         """Stringify the metrics."""
@@ -137,6 +180,16 @@ class Sample:
     _ALT_FORMAT_RE = re.compile(r"\);L([0-9]+)")
 
     @staticmethod
+    def is_full(sample: str) -> bool:
+        """Determine whether the sample has full metrics."""
+        try:
+            thread_frames, *metrics = sample.rsplit(maxsplit=3)
+            int(metrics[-3])
+            return True
+        except (ValueError, IndexError):
+            return False
+
+    @staticmethod
     def parse(sample: str) -> "Sample":
         """Parse the given string as a frame.
 
@@ -160,12 +213,7 @@ class Sample:
         except ValueError:
             raise InvalidSample(f"Sample has invalid process id: {sample}")
 
-        try:
-            thread_frames, *metrics = rest.rsplit(maxsplit=3)
-            int(metrics[-3])
-        except (ValueError, IndexError):
-            # Time/memory metrics
-            thread_frames, *metrics = rest.rsplit(maxsplit=1)
+        metrics, thread_frames = Metrics.parse(rest)
 
         if thread_frames[0] != "T":
             raise InvalidSample(f"Sample doesn't have thread id: {sample}")
@@ -182,7 +230,7 @@ class Sample:
             return Sample(
                 pid=int(pid),
                 thread=thread,
-                metrics=Metrics(*(int(metric) for metric in metrics)),
+                metrics=metrics,
                 frames=[Frame.parse(frame) for frame in frames.split(";")]
                 if frames
                 else [],
@@ -241,7 +289,7 @@ class HierarchicalStats:
         if not self.children:
             return [f";{prefix}{self.label} {self.own}"]
 
-        own = [] if self.own == Metrics() else [f";{self.label} {self.own}"]
+        own = [] if self.own == Metrics() else [f";{prefix}{self.label} {self.own}"]
         return own + [
             f";{prefix}{self.label}{rest}"
             for _, child in self.children.items()

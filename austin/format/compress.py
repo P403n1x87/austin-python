@@ -23,21 +23,31 @@
 
 from typing import TextIO
 
-from austin.stats import AustinStats, InvalidSample, Sample
+from austin.stats import InvalidSample, Metrics, ZERO
 
 
-def compress(source: TextIO, dest: TextIO) -> None:
+def compress(source: TextIO, dest: TextIO, counts: bool = False) -> None:
     """Compress the source stream.
 
-    Aggregates the metrics on equal collapsed stacks.
+    Aggregates the metrics on equal collapsed stacks. If ``counts`` is ``True``
+    then time samples are counted by occurrence rather than by sampling
+    duration.
     """
-    stats = AustinStats()
+    stats = {}
+
     for line in source:
         try:
-            stats.update(Sample.parse(line))
+            metrics, head = Metrics.parse(line)
+            if counts and metrics.time > 1:
+                metrics = Metrics(1, metrics.memory_alloc, metrics.memory_dealloc)
         except InvalidSample:
             continue
-    stats.dump(dest)
+        if metrics:
+            stats[head] = stats.get(head, ZERO) + metrics
+
+    dest.writelines(
+        [head + " " + str(metrics) + "\n" for head, metrics in stats.items()]
+    )
 
 
 def main() -> None:
@@ -62,13 +72,21 @@ def main() -> None:
         help="The output file; defaults to the input file for in-place compression.",
     )
 
-    arg_parser.add_argument("-V", "--version", action="version", version="0.1.0")
+    arg_parser.add_argument(
+        "-c",
+        "--counts",
+        action="store_bool",
+        default=False,
+        help="Use sample counts instead of measured sampling durations.",
+    )
+
+    arg_parser.add_argument("-V", "--version", action="version", version="0.2.0")
 
     args = arg_parser.parse_args()
 
     try:
         with open(args.input, "r") as fin, open(args.output or args.input, "w") as fout:
-            compress(fin, fout)
+            compress(fin, fout, args.counts)
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
         exit(1)

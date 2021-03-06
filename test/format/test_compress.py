@@ -24,6 +24,7 @@
 import io
 
 from austin.format.compress import compress
+from austin.stats import Metrics
 
 
 def test_compress():
@@ -32,4 +33,24 @@ def test_compress():
         compress(original, compressed)
 
         original.seek(0)
-        assert len(compressed.getvalue().splitlines()) < len(original.readlines())
+        compressed_value = compressed.getvalue()
+        assert compressed_value
+        assert len(compressed_value.splitlines()) < len(original.readlines())
+
+
+def test_compress_counts():
+    with open("test/data/austin.out") as original:
+        compressed = io.StringIO()
+        compress(original, compressed, counts=True)
+
+        for sample in compressed.getvalue().splitlines():
+            metrics, _ = Metrics.parse(sample)
+            if (
+                _ == "P4317;T7ffb7f8f0700;"
+                "_bootstrap (/usr/lib/python3.6/threading.py);L884;"
+                "_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;"
+                "run (/usr/lib/python3.6/threading.py);L864;"
+                "keep_cpu_busy (../austin/test/target34.py);L31"
+            ):
+                assert metrics.time == 20
+                break

@@ -23,7 +23,7 @@
 
 [tool.poetry]
 name = "austin-python"
-version = "0.2.1"
+version = "0.0.0"
 description = "Python wrapper for Austin, the frame stack sampler for CPython"
 license = "GPL-3.0-or-later"
 authors = ["Gabriele N. Tornetta <phoenix1987@gmail.com>"]
@@ -70,6 +70,9 @@ codecov = "^2.1.3"
 [tool.poetry.urls]
 issues = "https://github.com/P403n1x87/austin-python/issues"
 
+[tool.poetry-dynamic-versioning]
+enable = true
+
 [tool.coverage.run]
 branch = true
 source = ["austin"]
@@ -78,5 +81,5 @@ source = ["austin"]
 show_missing = true
 
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+requires = ["poetry_core>=1.0", "poetry-dynamic-versioning"]
+build-backend = "poetry.core.masonry.api"

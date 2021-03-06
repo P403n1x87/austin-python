@@ -1,0 +1,3 @@
+P403;Tx87;base (__main__.py:2);middle (utils.py:5);wrapper (decorators.py:4);top (logging.py:42) 12
+P403;Tx87;base (__main__.py:2);middle (utils.py:5);pop (logging.py:82) 47
+P403;Tx87;base (__main__.py:2);middle (utils.py:5);new (db.py:87) 36

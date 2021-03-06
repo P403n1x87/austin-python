@@ -186,16 +186,18 @@ def test_austin_stats_single_process():
 def test_dump():
     stats = AustinStats(42)
 
+    EMPTY_SAMPLE = "P42;T0x7f45645646 1"
     FOO_SAMPLE = "P42;T0x7f45645646;foo (foo_module.py:10) 150"
     BAR_SAMPLE = "P42;T0x7f45645646;foo (foo_module.py:10);bar (bar_sample.py:20) 1000"
 
     stats.update(Sample.parse(FOO_SAMPLE))
     stats.update(Sample.parse(FOO_SAMPLE))
     stats.update(Sample.parse(BAR_SAMPLE))
+    stats.update(Sample.parse(EMPTY_SAMPLE))
 
     buffer = io.StringIO()
     stats.dump(buffer)
-    assert buffer.getvalue() == DUMP_LOAD_SAMPLES
+    assert buffer.getvalue() == "P42;T0x7f45645646 1\n" + DUMP_LOAD_SAMPLES
 
 
 def test_load():

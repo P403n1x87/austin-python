@@ -29,6 +29,7 @@ jobs:
 
       - run: pip install nox
       - run: pip install poetry
+      - run: pip install poetry-dynamic-versioning
 
       - name: Run nox on Linux
         run: |

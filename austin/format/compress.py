@@ -75,7 +75,7 @@ def main() -> None:
     arg_parser.add_argument(
         "-c",
         "--counts",
-        action="store_bool",
+        action="store_true",
         default=False,
         help="Use sample counts instead of measured sampling durations.",
     )

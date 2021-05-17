@@ -27,27 +27,27 @@ from pytest import raises
 
 def test_sample_alt_format():
     assert Sample.parse(
-        "P1;T7fdf1b437700;_bootstrap (/usr/lib/python3.6/threading.py);L884;"
-        "_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;"
-        "run (/usr/lib/python3.6/threading.py);L864;"
-        "keep_cpu_busy (test/target34.py);L31 "
+        "P1;T7fdf1b437700;/usr/lib/python3.6/threading.py:_bootstrap;L884;"
+        "/usr/lib/python3.6/threading.py:_bootstrap_inner;L916;"
+        "/usr/lib/python3.6/threading.py:run;L864;"
+        "test/target34.py:keep_cpu_busy;L31 "
         "10085"
     ) == Sample(
         1,
         "7fdf1b437700",
         Metrics(10085),
         [
-            Frame.parse("_bootstrap (/usr/lib/python3.6/threading.py:884)"),
-            Frame.parse("_bootstrap_inner (/usr/lib/python3.6/threading.py:916)"),
-            Frame.parse("run (/usr/lib/python3.6/threading.py:864)"),
-            Frame.parse("keep_cpu_busy (test/target34.py:31)"),
+            Frame.parse("/usr/lib/python3.6/threading.py:_bootstrap:884"),
+            Frame.parse("/usr/lib/python3.6/threading.py:_bootstrap_inner:916"),
+            Frame.parse("/usr/lib/python3.6/threading.py:run:864"),
+            Frame.parse("test/target34.py:keep_cpu_busy:31"),
         ],
     )
 
 
 def test_sample_parser_valid():
     assert Sample.parse(
-        "P123;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42"
+        "P123;T0x7f546684;foo_module.py:foo:10;bar_module.py:bar:20 42"
     ) == Sample(
         123,
         "0x7f546684",
@@ -56,7 +56,7 @@ def test_sample_parser_valid():
     )
 
     assert Sample.parse(
-        "P1;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42"
+        "P1;T0x7f546684;foo_module.py:foo:10;bar_module.py:bar:20 42"
     ) == Sample(
         1,
         "0x7f546684",
@@ -65,7 +65,7 @@ def test_sample_parser_valid():
     )
 
     assert Sample.parse(
-        "P123;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) " "42 43 -44"
+        "P123;T0x7f546684;foo_module.py:foo:10;bar_module.py:bar:20 42,43,-44"
     ) == Sample(
         123,
         "0x7f546684",
@@ -74,7 +74,7 @@ def test_sample_parser_valid():
     )
 
     assert Sample.parse(
-        "P1;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44"
+        "P1;T0x7f546684;foo_module.py:foo:10;bar_module.py:bar:20 42,43,-44"
     ) == Sample(
         1,
         "0x7f546684",
@@ -82,7 +82,7 @@ def test_sample_parser_valid():
         [Frame("foo", "foo_module.py", 10), Frame("bar", "bar_module.py", 20)],
     )
 
-    assert Sample.parse("P1;T0x7f546684 42 43 -44") == Sample(
+    assert Sample.parse("P1;T0x7f546684 42,43,-44") == Sample(
         1, "0x7f546684", Metrics(42, 43, -44), []
     )
 
@@ -92,30 +92,30 @@ def test_sample_parser_invalid():
         Sample.parse("")
 
     with raises(InvalidSample):  # Missing Thread
-        Sample.parse("foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44")
+        Sample.parse("foo_module.py:foo:10;bar_module.py:bar:20 42,43,-44")
 
     with raises(InvalidSample):  # With PID but missing Thread
-        Sample.parse("P123;foo (foo_module.py:10);bar (bar_module.py:20) 42 43 -44")
+        Sample.parse("P123;foo_module.py:foo:10;bar_module.py:bar:20 42,43,-44")
 
     with raises(InvalidSample):  # Completely bonkers
         Sample.parse("snafu")
 
     with raises(InvalidSample):  # no metrics
-        Sample.parse("P1;T0x7f546684;foo (foo_module.py:10);bar (bar_module.py:20)")
+        Sample.parse("P1;T0x7f546684;foo_module.py:foo:10;bar_module.py:bar:20")
 
     with raises(InvalidSample):  # invalid frame
-        Sample.parse("P1;T0x7f546684;foo (foo_module.py:10);snafu 10")
+        Sample.parse("P1;T0x7f546684;foo_module.py:foo:10;snafu 10")
 
     with raises(InvalidSample):  # Invalid number of metrics
-        Sample.parse("P1;T0x7f546684;foo (foo_module.py:10) 10 20")
+        Sample.parse("P1;T0x7f546684;foo_module.py:foo:10 10,20")
 
     with raises(InvalidSample):  # Too many metrics
-        Sample.parse("P1;T0x7f546684;foo (foo_module.py:10) 10 20 30 40")
+        Sample.parse("P1;T0x7f546684;foo_module.py:foo:10 10,20,30,40")
 
 
 def test_capital_ell():
     assert Sample.parse(
-        "P1;T0x7f546684;foo (foo_module.py:10);Loo (loo_module.py:20) 10"
+        "P1;T0x7f546684;foo_module.py:foo:10;loo_module.py:Loo:20 10"
     ) == Sample(
         1,
         "0x7f546684",

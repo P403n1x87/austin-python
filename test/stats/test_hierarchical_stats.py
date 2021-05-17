@@ -63,8 +63,8 @@ def test_frame_stats_add_disjoint():
 def test_frame_stats_add_matching():
     frame_stats = FrameStats(
         label=Frame("foo", "foo_module.py", 10),
-        own=Metrics(10, 10, 0),
-        total=Metrics(20, 10, 0),
+        own=Metrics(10, 0, 10),
+        total=Metrics(20, 0, 10),
         height=0,
         children={
             Frame("foobar", "foo_module.py", 5): FrameStats(
@@ -77,13 +77,13 @@ def test_frame_stats_add_matching():
     ) << FrameStats(
         label=Frame("foo", "foo_module.py", 10),
         own=Metrics(0, 0, 0),
-        total=Metrics(15, 5, 0),
+        total=Metrics(15, 0, 5),
         height=0,
         children={
             Frame("foobar", "foo_module.py", 5): FrameStats(
                 label=Frame("foobar", "foo_module.py", 5),
-                own=Metrics(15, 5, 0),
-                total=Metrics(15, 5, 0),
+                own=Metrics(15, 0, 5),
+                total=Metrics(15, 0, 5),
                 height=1,
             )
         },
@@ -91,14 +91,14 @@ def test_frame_stats_add_matching():
 
     assert frame_stats == FrameStats(
         label=Frame("foo", "foo_module.py", 10),
-        own=Metrics(10, 10, 0),
-        total=Metrics(35, 15, 0),
+        own=Metrics(10, 0, 10),
+        total=Metrics(35, 0, 15),
         height=0,
         children={
             Frame("foobar", "foo_module.py", 5): FrameStats(
                 label=Frame("foobar", "foo_module.py", 5),
-                own=Metrics(25, 5, 0),
-                total=Metrics(25, 5, 0),
+                own=Metrics(25, 0, 5),
+                total=Metrics(25, 0, 5),
                 height=1,
             )
         },
@@ -108,8 +108,8 @@ def test_frame_stats_add_matching():
 def test_frame_stats_add_partial_matching():
     frame_stats = FrameStats(
         label=Frame("foo", "foo_module.py", 10),
-        own=Metrics(10, 10, 0),
-        total=Metrics(20, 10, 0),
+        own=Metrics(10, 0, 10),
+        total=Metrics(20, 0, 10),
         height=0,
         children={
             Frame("foobar", "foo_module.py", 5): FrameStats(
@@ -122,13 +122,13 @@ def test_frame_stats_add_partial_matching():
     ) << FrameStats(
         label=Frame("foo", "foo_module.py", 10),
         own=Metrics(0, 0, 0),
-        total=Metrics(15, 5, 0),
+        total=Metrics(15, 0, 5),
         height=0,
         children={
             Frame("foobar", "bar_module.py", 5): FrameStats(
                 label=Frame("foobar", "bar_module.py", 5),
-                own=Metrics(15, 5, 0),
-                total=Metrics(15, 5, 0),
+                own=Metrics(15, 0, 5),
+                total=Metrics(15, 0, 5),
                 height=1,
             )
         },
@@ -136,8 +136,8 @@ def test_frame_stats_add_partial_matching():
 
     assert frame_stats == FrameStats(
         label=Frame("foo", "foo_module.py", 10),
-        own=Metrics(10, 10, 0),
-        total=Metrics(35, 15, 0),
+        own=Metrics(10, 0, 10),
+        total=Metrics(35, 0, 15),
         height=0,
         children={
             Frame("foobar", "foo_module.py", 5): FrameStats(
@@ -148,8 +148,8 @@ def test_frame_stats_add_partial_matching():
             ),
             Frame("foobar", "bar_module.py", 5): FrameStats(
                 label=Frame("foobar", "bar_module.py", 5),
-                own=Metrics(15, 5, 0),
-                total=Metrics(15, 5, 0),
+                own=Metrics(15, 0, 5),
+                total=Metrics(15, 0, 5),
                 height=1,
             ),
         },

@@ -33,16 +33,15 @@ from austin.stats import (
     ThreadStats,
 )
 
-
-DUMP_LOAD_SAMPLES = """P42;T0x7f45645646;foo (foo_module.py:10) 300
-P42;T0x7f45645646;foo (foo_module.py:10);bar (bar_sample.py:20) 1000
+DUMP_LOAD_SAMPLES = """P42;T0x7f45645646;foo_module.py:foo:10 300
+P42;T0x7f45645646;foo_module.py:foo:10;bar_sample.py:bar:20 1000
 """
 
 
 def test_austin_stats_single_process():
     stats = AustinStats(42)
 
-    stats.update(Sample.parse("P42;T0x7f45645646;foo (foo_module.py:10) 152"))
+    stats.update(Sample.parse("P42;T0x7f45645646;foo_module.py:foo:10 152"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
@@ -89,7 +88,7 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(Sample.parse("P42;T0x7f45645646;foo (foo_module.py:10) 100"))
+    stats.update(Sample.parse("P42;T0x7f45645646;foo_module.py:foo:10 100"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
@@ -113,7 +112,7 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(Sample.parse("P42;T0x7f45645646;bar (foo_module.py:35) 400"))
+    stats.update(Sample.parse("P42;T0x7f45645646;foo_module.py:bar:35 400"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
@@ -142,7 +141,7 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(Sample.parse("P42;T0x7f45645664;foo (foo_module.py:10) 152"))
+    stats.update(Sample.parse("P42;T0x7f45645664;foo_module.py:foo:10 152"))
     assert stats == AustinStats(
         child_pid=42,
         processes={
@@ -187,8 +186,8 @@ def test_dump():
     stats = AustinStats(42)
 
     EMPTY_SAMPLE = "P42;T0x7f45645646 1"
-    FOO_SAMPLE = "P42;T0x7f45645646;foo (foo_module.py:10) 150"
-    BAR_SAMPLE = "P42;T0x7f45645646;foo (foo_module.py:10);bar (bar_sample.py:20) 1000"
+    FOO_SAMPLE = "P42;T0x7f45645646;foo_module.py:foo:10 150"
+    BAR_SAMPLE = "P42;T0x7f45645646;foo_module.py:foo:10;bar_sample.py:bar:20 1000"
 
     stats.update(Sample.parse(FOO_SAMPLE))
     stats.update(Sample.parse(FOO_SAMPLE))
@@ -211,8 +210,8 @@ def test_load():
                 threads={
                     "0x7f45645646": ThreadStats(
                         label="0x7f45645646",
-                        own=Metrics(time=0, memory_alloc=0, memory_dealloc=0),
-                        total=Metrics(time=1300, memory_alloc=0, memory_dealloc=0),
+                        own=Metrics(time=0, memory=0),
+                        total=Metrics(time=1300, memory=0),
                         children={
                             Frame(
                                 function="foo", filename="foo_module.py", line=10
@@ -220,10 +219,8 @@ def test_load():
                                 label=Frame(
                                     function="foo", filename="foo_module.py", line=10
                                 ),
-                                own=Metrics(time=300, memory_alloc=0, memory_dealloc=0),
-                                total=Metrics(
-                                    time=1300, memory_alloc=0, memory_dealloc=0
-                                ),
+                                own=Metrics(time=300, memory=0),
+                                total=Metrics(time=1300, memory=0),
                                 children={
                                     Frame(
                                         function="bar",
@@ -235,12 +232,8 @@ def test_load():
                                             filename="bar_sample.py",
                                             line=20,
                                         ),
-                                        own=Metrics(
-                                            time=1000, memory_alloc=0, memory_dealloc=0
-                                        ),
-                                        total=Metrics(
-                                            time=1000, memory_alloc=0, memory_dealloc=0
-                                        ),
+                                        own=Metrics(time=1000, memory=0),
+                                        total=Metrics(time=1000, memory=0),
                                         children={},
                                         height=1,
                                     )

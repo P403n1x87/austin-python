@@ -21,8 +21,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from dataclasses import dataclass, field
 import re
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TextIO, Type
 
 from austin import AustinError
@@ -65,23 +65,28 @@ class Metrics:
     """Austin metrics."""
 
     time: MicroSeconds = 0
-    memory_alloc: KiloBytes = 0
-    memory_dealloc: KiloBytes = 0
+    idle: bool = False
+    memory: KiloBytes = 0
+
+    def __post_init__(self):
+        object.__setattr__(self, "memory_alloc", 0 if self.memory < 0 else self.memory)
+        object.__setattr__(
+            self, "memory_dealloc", 0 if self.memory > 0 else -self.memory
+        )
+        object.__setattr__(self, "idle", bool(self.idle))
 
     def __add__(self, other: "Metrics") -> "Metrics":
         """Add metrics together (algebraically and component-wise)."""
         return Metrics(
-            self.time + other.time,
-            self.memory_alloc + other.memory_alloc,
-            self.memory_dealloc + other.memory_dealloc,
+            time=self.time + other.time,
+            memory=self.memory + other.memory,
         )
 
     def __sub__(self, other: "Metrics") -> "Metrics":
         """Subtract metrics (algebraically and component-wise)."""
         return Metrics(
-            self.time - other.time,
-            self.memory_alloc - other.memory_alloc,
-            self.memory_dealloc - other.memory_dealloc,
+            time=self.time - other.time,
+            memory=self.memory - other.memory,
         )
 
     def __gt__(self, other: "Metrics") -> "Metrics":
@@ -96,7 +101,7 @@ class Metrics:
         """Comparison of metrics."""
         return (
             self.time >= other.time
-            and self.memory_alloc >= other.memory_alloc
+            and self.memory >= other.memory_alloc
             and self.memory_dealloc >= other.memory_dealloc
         )
 
@@ -105,21 +110,24 @@ class Metrics:
         return self + ZERO
 
     @staticmethod
-    def parse(sample: str) -> "Metrics":
+    def parse(sample: str, time=True) -> "Metrics":
         """Parse the metrics from a sample.
 
         Returns a tuple containing the parsed metrics and the head of the
         sample for further processing.
         """
         try:
-            head, *metrics = sample.rsplit(maxsplit=3)
-            int(metrics[-3])
-        except (ValueError, IndexError):
-            # Time/memory metrics
-            head, *metrics = sample.rsplit(maxsplit=1)
-
-        try:
-            return Metrics(*(int(metric) for metric in metrics)), head
+            head, _, data = sample.rpartition(" ")
+            metrics = tuple(int(_) for _ in data.split(","))
+            if len(metrics) == 3:
+                return Metrics(*metrics), head
+            elif len(metrics) == 1:
+                return (
+                    Metrics(time=metrics[0]) if time else Metrics(memory=metrics[0]),
+                    head,
+                )
+            else:
+                raise InvalidSample(sample)
         except ValueError:
             raise InvalidSample(sample)
 
@@ -145,7 +153,7 @@ class Frame:
 
         A string representing a frame has the structure
 
-            ``[frame] := <function> (<module>:<line number>)``
+            ``[frame] := <module>:<function>:<line number>``
 
         This static method attempts to parse the given string in order to
         identify the parts of the frame and returns an instance of the
@@ -154,18 +162,15 @@ class Frame:
         if not frame:
             raise InvalidFrame(frame)
 
-        function, _, rest = frame.partition(" (")
         try:
-            module, rest = rest.rsplit(":", maxsplit=1)
-            line_no = int(rest.rstrip(")"))
+            module, function, line = frame.rsplit(":", maxsplit=3)
         except ValueError:
             raise InvalidFrame(frame)
-
-        return Frame(function, module, line_no)
+        return Frame(function, module, int(line))
 
     def __str__(self) -> str:
         """Stringify the ``Frame`` object."""
-        return f"{self.function} ({self.filename}:{self.line})"
+        return f"{self.filename}:{self.function}:{self.line}"
 
 
 @dataclass
@@ -177,7 +182,7 @@ class Sample:
     metrics: Metrics
     frames: List[Frame] = field(default_factory=list)
 
-    _ALT_FORMAT_RE = re.compile(r"\);L([0-9]+)")
+    _ALT_FORMAT_RE = re.compile(r";L([0-9]+)")
 
     @staticmethod
     def is_full(sample: str) -> bool:
@@ -195,7 +200,7 @@ class Sample:
 
         A string representing a sample has the structure
 
-            ``[Process <pid>;]?Thread <tid>[;[frame]]* [metric]*``
+            ``P<pid>;T<tid>[;[frame]]* [metric][,[metric]]*``
 
         This static method attempts to parse the given string in order to
         identify the parts of the sample and returns an instance of the
@@ -222,9 +227,8 @@ class Sample:
         thread = thread[1:]
 
         if frames:
-            colon = frames.rfind(";")
-            if colon and frames[colon + 1] == "L":
-                frames = Sample._ALT_FORMAT_RE.sub(r":\1)", frames)
+            if frames.rfind(";L"):
+                frames = Sample._ALT_FORMAT_RE.sub(r":\1", frames)
 
         try:
             return Sample(

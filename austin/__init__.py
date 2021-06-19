@@ -22,11 +22,12 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
+from abc import ABC
+from abc import abstractmethod
 import argparse
 import functools
 import os
 import os.path
-from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import psutil

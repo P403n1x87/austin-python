@@ -23,7 +23,9 @@
 
 from typing import TextIO
 
-from austin.stats import InvalidSample, Metrics, ZERO
+from austin.stats import InvalidSample
+from austin.stats import Metrics
+from austin.stats import ZERO
 
 
 def compress(source: TextIO, dest: TextIO, counts: bool = False) -> None:

@@ -23,15 +23,13 @@
 
 import io
 
-from austin.stats import (
-    AustinStats,
-    Frame,
-    FrameStats,
-    Metrics,
-    ProcessStats,
-    Sample,
-    ThreadStats,
-)
+from austin.stats import AustinStats
+from austin.stats import Frame
+from austin.stats import FrameStats
+from austin.stats import Metrics
+from austin.stats import ProcessStats
+from austin.stats import Sample
+from austin.stats import ThreadStats
 
 DUMP_LOAD_SAMPLES = """P42;T0x7f45645646;foo_module.py:foo:10 300
 P42;T0x7f45645646;foo_module.py:foo:10;bar_sample.py:bar:20 1000

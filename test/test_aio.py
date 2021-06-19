@@ -24,9 +24,10 @@
 import asyncio
 import sys
 
+from pytest import raises
+
 from austin import AustinError
 from austin.aio import AsyncAustin
-from pytest import raises
 
 if sys.platform == "win32":
     loop = asyncio.ProactorEventLoop()

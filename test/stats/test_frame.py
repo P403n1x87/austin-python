@@ -21,8 +21,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from austin.stats import Frame, InvalidFrame
 from pytest import raises
+
+from austin.stats import Frame
+from austin.stats import InvalidFrame
 
 
 def test_frame_parser_valid():

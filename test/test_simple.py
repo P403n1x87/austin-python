@@ -25,11 +25,12 @@ import os
 import os.path
 import tempfile
 
+from pytest import raises
 import toml
+
 from austin import AustinError
 from austin.config import AustinConfiguration as AC
 from austin.simple import SimpleAustin
-from pytest import raises
 
 
 class TestSimpleAustin(SimpleAustin):

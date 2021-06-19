@@ -23,9 +23,11 @@
 
 import subprocess
 import sys
-from typing import IO, Dict, List
+from typing import Dict, IO, List
 
-from austin import AustinError, AustinTerminated, BaseAustin
+from austin import AustinError
+from austin import AustinTerminated
+from austin import BaseAustin
 from austin.cli import AustinArgumentParser
 
 

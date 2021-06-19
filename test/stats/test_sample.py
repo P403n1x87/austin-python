@@ -21,8 +21,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from austin.stats import Frame, InvalidSample, Metrics, Sample
 from pytest import raises
+
+from austin.stats import Frame
+from austin.stats import InvalidSample
+from austin.stats import Metrics
+from austin.stats import Sample
 
 
 def test_sample_alt_format():

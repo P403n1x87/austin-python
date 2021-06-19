@@ -24,9 +24,10 @@
 from enum import Enum
 from typing import Any, BinaryIO, Dict, Tuple
 
-from austin.format.pprof.profile_pb2 import Profile, Sample
-from austin.stats import Frame, Sample as AustinSample
-
+from austin.format.pprof.profile_pb2 import Profile
+from austin.format.pprof.profile_pb2 import Sample
+from austin.stats import Frame
+from austin.stats import Sample as AustinSample
 
 PROCESS_ID_LABEL = "Process ID"
 THREAD_ID_LABEL = "Thread ID"

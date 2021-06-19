@@ -21,8 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from dataclasses import dataclass
+from dataclasses import field
 import re
-from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, TextIO, Type
 
 from austin import AustinError
@@ -68,7 +69,8 @@ class Metrics:
     idle: bool = False
     memory: KiloBytes = 0
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
+        """Finish initialisation."""
         object.__setattr__(self, "memory_alloc", 0 if self.memory < 0 else self.memory)
         object.__setattr__(
             self, "memory_dealloc", 0 if self.memory > 0 else -self.memory
@@ -110,7 +112,7 @@ class Metrics:
         return self + ZERO
 
     @staticmethod
-    def parse(sample: str, time=True) -> "Metrics":
+    def parse(sample: str, time: bool = True) -> "Metrics":
         """Parse the metrics from a sample.
 
         Returns a tuple containing the parsed metrics and the head of the

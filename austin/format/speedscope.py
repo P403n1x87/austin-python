@@ -21,12 +21,17 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 import json
 from typing import Dict, List, Optional, TextIO
 
-from austin.stats import Frame, InvalidSample, Sample, ZERO
+from austin.stats import Frame
+from austin.stats import InvalidSample
+from austin.stats import Sample
+from austin.stats import ZERO
 
 SpeedscopeJson = Dict
 SpeedscopeWeight = int
@@ -106,10 +111,14 @@ class Speedscope:
 
         self.profiles.append(
             SpeedscopeProfile(
-                name=f"{prefix} profile for {pid}:{thread}", unit=units.value,
+                name=f"{prefix} profile for {pid}:{thread}",
+                unit=units.value,
             )
         )
-        return profiles.setdefault(metric, self.profiles[-1],)
+        return profiles.setdefault(
+            metric,
+            self.profiles[-1],
+        )
 
     def add_sample(self, sample: Sample) -> None:
         """Add a sample to the generator."""
@@ -148,14 +157,16 @@ class Speedscope:
     def dump(self, stream: TextIO) -> None:
         """Dump the pprof protobuf message to the given binary stream."""
         json.dump(
-            self.asdict(), stream, indent=self.indent,
+            self.asdict(),
+            stream,
+            indent=self.indent,
         )
 
 
 def main() -> None:
     """austin2speedscope entry point."""
-    import os
     from argparse import ArgumentParser
+    import os
 
     arg_parser = ArgumentParser(
         prog="austin2speedscope",

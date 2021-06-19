@@ -24,7 +24,8 @@
 from argparse import ArgumentParser
 
 from austin.format.pprof import PProf
-from austin.stats import InvalidSample, Sample
+from austin.stats import InvalidSample
+from austin.stats import Sample
 
 
 def main() -> None:

@@ -23,7 +23,9 @@
 
 from copy import deepcopy
 
-from austin.stats import Frame, FrameStats, Metrics
+from austin.stats import Frame
+from austin.stats import FrameStats
+from austin.stats import Metrics
 
 
 def test_frame_stats_add_disjoint():

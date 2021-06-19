@@ -23,9 +23,11 @@
 
 import asyncio
 import sys
-from typing import IO, Dict, List, Optional
+from typing import Dict, IO, List, Optional
 
-from austin import AustinError, AustinTerminated, BaseAustin
+from austin import AustinError
+from austin import AustinTerminated
+from austin import BaseAustin
 from austin.cli import AustinArgumentParser
 
 

@@ -21,10 +21,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from austin import AustinError, AustinTerminated
+from pytest import raises
+
+from austin import AustinError
+from austin import AustinTerminated
 from austin.simple import SimpleAustin
 from austin.threads import ThreadedAustin
-from pytest import raises
 
 
 def check_raises(exc):

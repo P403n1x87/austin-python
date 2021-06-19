@@ -2,7 +2,6 @@ import tempfile
 
 import nox
 
-
 nox.options.sessions = "lint", "tests"
 
 
@@ -52,6 +51,7 @@ def lint(session):
         "flake8-bugbear",
         "flake8-docstrings",
         "flake8-import-order",
+        "flake8-isort",
     )
     session.run("flake8", *LINT_LOCATIONS, "--exclude", *LINT_EXCLUDES)
 

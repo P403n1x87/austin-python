@@ -27,8 +27,11 @@ from io import StringIO
 from typing import List, TextIO, Tuple
 
 from austin.format.compress import compress
-from austin.stats import Frame, InvalidSample, Metrics, Sample, ZERO
-
+from austin.stats import Frame
+from austin.stats import InvalidSample
+from austin.stats import Metrics
+from austin.stats import Sample
+from austin.stats import ZERO
 
 FoldedStack = List[Frame]
 

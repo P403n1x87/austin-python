@@ -24,7 +24,8 @@
 import io
 
 from austin.format.pprof import PProf
-from austin.stats import InvalidSample, Sample
+from austin.stats import InvalidSample
+from austin.stats import Sample
 
 
 def test_pprof():

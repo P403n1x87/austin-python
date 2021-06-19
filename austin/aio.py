@@ -23,10 +23,23 @@
 
 import asyncio
 import sys
-from typing import List
+from typing import IO, Dict, List, Optional
 
 from austin import AustinError, AustinTerminated, BaseAustin
 from austin.cli import AustinArgumentParser
+
+
+async def _read_meta(stream: IO) -> Dict[str, str]:
+    meta = {}
+
+    while True:
+        line = (await stream.readline()).decode().rstrip()
+        if not (line and line.startswith("# ")):
+            break
+        key, _, value = line[2:].partition(": ")
+        meta[key] = value
+
+    return meta
 
 
 class AsyncAustin(BaseAustin):
@@ -64,16 +77,23 @@ class AsyncAustin(BaseAustin):
             pass
     """
 
+    async def _read_stderr(self) -> Optional[str]:
+        try:
+            return (
+                (await asyncio.wait_for(self.proc.stderr.read(), 0.1)).decode().rstrip()
+            )
+        except asyncio.TimeoutError:
+            return None
+
     async def _read_header(self) -> bool:
-        while self._python_version is None:
-            line = (await self.proc.stderr.readline()).decode().rstrip()
-            if not line:
-                return False
-            if " austin version: " in line:
-                _, _, self._version = line.partition(": ")
-            elif " Python version: " in line:
-                _, _, self._python_version = line.partition(": ")
-        return True
+        meta = await _read_meta(self.proc.stdout)
+        self._meta.update(meta)
+        return meta
+
+    async def _read_footer(self) -> bool:
+        meta = await _read_meta(self.proc.stdout)
+        self._meta.update(meta)
+        return meta
 
     async def start(self, args: List[str] = None) -> None:
         """Create the start coroutine.
@@ -81,9 +101,11 @@ class AsyncAustin(BaseAustin):
         Use with the ``asyncio`` event loop.
         """
         try:
+            _args = list(args or sys.argv[1:])
+            _args.insert(0, "-P")
             self.proc = await asyncio.create_subprocess_exec(
                 self.binary_path,
-                *(args or sys.argv[1:]),
+                *_args,
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -111,7 +133,7 @@ class AsyncAustin(BaseAustin):
 
             # Start readline loop
             while self._running:
-                data = await self.proc.stdout.readline()
+                data = (await self.proc.stdout.readline()).rstrip()
                 if not data:
                     break
 
@@ -121,16 +143,9 @@ class AsyncAustin(BaseAustin):
             # Wait for the subprocess to terminate
             self._running = False
 
-            try:
-                stderr = (
-                    (await asyncio.wait_for(self.proc.stderr.read(), 0.1))
-                    .decode()
-                    .rstrip()
-                )
-            except asyncio.TimeoutError:
-                stderr = ""
-            self._terminate_callback(stderr)
+            self._terminate_callback(await self._read_footer())
 
+            stderr = await self._read_stderr()
             rcode = await self.proc.wait()
             if rcode:
                 if rcode in (-15, 15):

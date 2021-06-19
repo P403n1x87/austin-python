@@ -188,6 +188,7 @@ class Sample:
     def is_full(sample: str) -> bool:
         """Determine whether the sample has full metrics."""
         try:
+            # TODO: UPDATE!!
             thread_frames, *metrics = sample.rsplit(maxsplit=3)
             int(metrics[-3])
             return True
@@ -210,18 +211,18 @@ class Sample:
             raise InvalidSample(sample)
 
         if sample[0] != "P":
-            raise InvalidSample(f"Sample doesn't begin with process id: {sample}")
+            raise InvalidSample(f"No process ID in sample '{sample}'")
 
         process, _, rest = sample.partition(";")
         try:
             pid = int(process[1:])
         except ValueError:
-            raise InvalidSample(f"Sample has invalid process id: {sample}")
+            raise InvalidSample(f"Invalid process ID in sample '{sample}'")
 
         metrics, thread_frames = Metrics.parse(rest)
 
         if thread_frames[0] != "T":
-            raise InvalidSample(f"Sample doesn't have thread id: {sample}")
+            raise InvalidSample(f"No thread ID in sample '{sample}'")
 
         thread, _, frames = thread_frames.partition(";")
         thread = thread[1:]

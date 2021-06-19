@@ -25,11 +25,11 @@ import os
 import os.path
 import tempfile
 
+import toml
 from austin import AustinError
 from austin.config import AustinConfiguration as AC
 from austin.simple import SimpleAustin
 from pytest import raises
-import toml
 
 
 class TestSimpleAustin(SimpleAustin):
@@ -51,9 +51,10 @@ class TestSimpleAustin(SimpleAustin):
         self._sample_received = True
 
     def on_terminate(self, data):
-        assert "Long" in data
-        assert "Error" in data
-        assert "time" in data
+        assert "duration" in data
+        assert "errors" in data
+        assert "sampling" in data
+        assert "saturation" in data
         self._terminate = True
 
     def assert_callbacks_called(self):

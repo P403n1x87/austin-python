@@ -22,16 +22,16 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from abc import ABC, abstractmethod
 import argparse
 import functools
 import os
 import os.path
-from typing import Any, Callable, List, Optional, Tuple
+from abc import ABC, abstractmethod
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from austin.config import AustinConfiguration
 import psutil
 
+from austin.config import AustinConfiguration
 
 try:
     _cached = functools.cache
@@ -86,6 +86,7 @@ class BaseAustin(ABC):
         self._child_proc: psutil.Process = None
         self._cmd_line: Optional[str] = None
         self._running: bool = False
+        self._meta: Dict[str, str] = {}
 
         try:
             self._sample_callback = sample_callback or self.on_sample_received
@@ -265,9 +266,9 @@ class BaseAustin(ABC):
     @property
     def version(self) -> Optional[str]:
         """Austin version."""
-        return self._version
+        return self._meta.get("austin")
 
     @property
     def python_version(self) -> Optional[str]:
         """The version of the detected Python interpreter."""
-        return self._python_version
+        return self._meta.get("python")

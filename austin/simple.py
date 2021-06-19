@@ -23,10 +23,23 @@
 
 import subprocess
 import sys
-from typing import List
+from typing import IO, Dict, List
 
 from austin import AustinError, AustinTerminated, BaseAustin
 from austin.cli import AustinArgumentParser
+
+
+def _read_meta(stream: IO) -> Dict[str, str]:
+    meta = {}
+
+    while True:
+        line = stream.readline().decode().rstrip()
+        if not (line and line.startswith("# ")):
+            break
+        key, _, value = line[2:].partition(": ")
+        meta[key] = value
+
+    return meta
 
 
 class SimpleAustin(BaseAustin):
@@ -58,21 +71,20 @@ class SimpleAustin(BaseAustin):
     """
 
     def _read_header(self) -> bool:
-        while self._python_version is None:
-            line = (self.proc.stderr.readline()).decode().rstrip()
-            if not line:
-                return False
-            if " austin version: " in line:
-                _, _, self._version = line.partition(": ")
-            elif " Python version: " in line:
-                _, _, self._python_version = line.partition(": ")
-        return True
+        meta = _read_meta(self.proc.stdout)
+        self._meta.update(meta)
+        return meta
+
+    def _read_footer(self) -> bool:
+        meta = _read_meta(self.proc.stdout)
+        self._meta.update(meta)
+        return meta
 
     def start(self, args: List[str] = None) -> None:
         """Start the Austin process."""
         try:
             self.proc = subprocess.Popen(
-                [self.binary_path] + (args or sys.argv[1:]),
+                [self.binary_path] + ["-P"] + (args or sys.argv[1:]),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -95,19 +107,21 @@ class SimpleAustin(BaseAustin):
             )
 
             while self.is_running():
-                data = self.proc.stdout.readline()
+                data = self.proc.stdout.readline().rstrip()
                 if not data:
                     break
 
                 self.submit_sample(data)
 
         finally:
+            self._running = False
+            self._terminate_callback(self._read_footer())
+
             try:
                 stderr = self.proc.communicate(timeout=1)[1].decode().rstrip()
             except subprocess.TimeoutExpired:
                 stderr = ""
-            self._running = False
-            self._terminate_callback(stderr)
+
             retcode = self.proc.wait()
             if retcode:
                 if retcode in (-15, 15):

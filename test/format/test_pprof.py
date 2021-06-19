@@ -24,7 +24,7 @@
 import io
 
 from austin.format.pprof import PProf
-from austin.stats import Sample
+from austin.stats import InvalidSample, Sample
 
 
 def test_pprof():
@@ -32,7 +32,10 @@ def test_pprof():
         with open("test/data/austin.pprof", "rb") as pprof:
             prof = PProf()
             for line in austin:
-                prof.add_sample(Sample.parse(line))
+                try:
+                    prof.add_sample(Sample.parse(line))
+                except InvalidSample:
+                    assert line == "\n" or line.startswith("# ")
 
             bstream = io.BytesIO()
             prof.dump(bstream)

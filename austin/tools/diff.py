@@ -40,7 +40,11 @@ def _similarities(
 
     def score(a: List[Frame], b: List[Frame]) -> float:
         """Score two folded stacks."""
-        return SequenceMatcher(a=a, b=b).ratio()
+        if not len(a) and not len(b):
+            return 1
+        return SequenceMatcher(a=a, b=b).ratio() - abs(len(a) - len(b)) / (
+            len(a) + len(b)
+        )
 
     return sorted(
         [((i, j), score(a, b)) for i, a in enumerate(x) for j, b in enumerate(y)],

@@ -59,7 +59,13 @@ def lint(session):
 @nox.session(python=SUPPORTED_PYTHON_VERSIONS)
 def mypy(session):
     session.install("mypy")
-    session.run("mypy", *MYPY_LOCATIONS)
+    session.run(
+        "mypy",
+        "--show-error-codes",
+        "--install-types",
+        "--non-interactive",
+        *MYPY_LOCATIONS,
+    )
 
 
 @nox.session(python="3.8")

@@ -23,25 +23,12 @@
 
 import asyncio
 import sys
-from typing import Dict, IO, List, Optional
+from typing import Dict, List, Optional
 
 from austin import AustinError
 from austin import AustinTerminated
 from austin import BaseAustin
 from austin.cli import AustinArgumentParser
-
-
-async def _read_meta(stream: IO) -> Dict[str, str]:
-    meta = {}
-
-    while True:
-        line = (await stream.readline()).decode().rstrip()
-        if not (line and line.startswith("# ")):
-            break
-        key, _, value = line[2:].partition(": ")
-        meta[key] = value
-
-    return meta
 
 
 class AsyncAustin(BaseAustin):
@@ -80,6 +67,8 @@ class AsyncAustin(BaseAustin):
     """
 
     async def _read_stderr(self) -> Optional[str]:
+        assert self.proc.stderr is not None
+
         try:
             return (
                 (await asyncio.wait_for(self.proc.stderr.read(), 0.1)).decode().rstrip()
@@ -87,13 +76,18 @@ class AsyncAustin(BaseAustin):
         except asyncio.TimeoutError:
             return None
 
-    async def _read_header(self) -> bool:
-        meta = await _read_meta(self.proc.stdout)
-        self._meta.update(meta)
-        return meta
+    async def _read_meta(self) -> Dict[str, str]:
+        assert self.proc.stdout is not None
 
-    async def _read_footer(self) -> bool:
-        meta = await _read_meta(self.proc.stdout)
+        meta = {}
+
+        while True:
+            line = (await self.proc.stdout.readline()).decode().rstrip()
+            if not (line and line.startswith("# ")):
+                break
+            key, _, value = line[2:].partition(": ")
+            meta[key] = value
+
         self._meta.update(meta)
         return meta
 
@@ -123,7 +117,7 @@ class AsyncAustin(BaseAustin):
         self._running = True
 
         try:
-            if not await self._read_header():
+            if not await self._read_meta():
                 raise AustinError("Austin did not start properly")
 
             # Austin started correctly
@@ -145,7 +139,7 @@ class AsyncAustin(BaseAustin):
             # Wait for the subprocess to terminate
             self._running = False
 
-            self._terminate_callback(await self._read_footer())
+            self._terminate_callback(await self._read_meta())
 
             stderr = await self._read_stderr()
             rcode = await self.proc.wait()

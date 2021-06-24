@@ -23,25 +23,12 @@
 
 import subprocess
 import sys
-from typing import Dict, IO, List
+from typing import Dict, List
 
 from austin import AustinError
 from austin import AustinTerminated
 from austin import BaseAustin
 from austin.cli import AustinArgumentParser
-
-
-def _read_meta(stream: IO) -> Dict[str, str]:
-    meta = {}
-
-    while True:
-        line = stream.readline().decode().rstrip()
-        if not (line and line.startswith("# ")):
-            break
-        key, _, value = line[2:].partition(": ")
-        meta[key] = value
-
-    return meta
 
 
 class SimpleAustin(BaseAustin):
@@ -72,14 +59,20 @@ class SimpleAustin(BaseAustin):
             pass
     """
 
-    def _read_header(self) -> bool:
-        meta = _read_meta(self.proc.stdout)
-        self._meta.update(meta)
-        return meta
+    def _read_meta(self) -> Dict[str, str]:
+        assert self.proc.stdout
 
-    def _read_footer(self) -> bool:
-        meta = _read_meta(self.proc.stdout)
+        meta = {}
+
+        while True:
+            line = self.proc.stdout.readline().decode().rstrip()
+            if not (line and line.startswith("# ")):
+                break
+            key, _, value = line[2:].partition(": ")
+            meta[key] = value
+
         self._meta.update(meta)
+
         return meta
 
     def start(self, args: List[str] = None) -> None:
@@ -99,7 +92,7 @@ class SimpleAustin(BaseAustin):
             raise AustinError("Standard error stream is unexpectedly missing")
 
         try:
-            if not self._read_header():
+            if not self._read_meta():
                 raise AustinError("Austin did not start properly")
 
             self._ready_callback(
@@ -117,7 +110,7 @@ class SimpleAustin(BaseAustin):
 
         finally:
             self._running = False
-            self._terminate_callback(self._read_footer())
+            self._terminate_callback(self._read_meta())
 
             try:
                 stderr = self.proc.communicate(timeout=1)[1].decode().rstrip()

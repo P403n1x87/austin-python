@@ -69,7 +69,7 @@ class AustinArgumentParser(ArgumentParser):
 
         def time(units: str) -> Callable[[str], int]:
             """Parse time argument with units."""
-            base = {"us": 1, "ms": 1e3, "s": 1e6}[units]
+            base = int({"us": 1, "ms": 1e3, "s": 1e6}[units])
 
             def parser(arg: str) -> int:
                 if arg.endswith("us"):
@@ -173,7 +173,7 @@ class AustinArgumentParser(ArgumentParser):
                 "its arguments.",
             )
 
-    def parse_args(
+    def parse_args(  # type: ignore[override]
         self, args: List[str] = None, namespace: Namespace = None
     ) -> Namespace:
         """Parse the list of arguments.

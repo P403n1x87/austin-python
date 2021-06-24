@@ -26,12 +26,14 @@ from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
 import json
-from typing import Dict, List, Optional, TextIO
+from typing import Dict, List, Optional, TextIO, Union
 
+from austin.format import Mode
+from austin.stats import AustinFileReader
 from austin.stats import Frame
 from austin.stats import InvalidSample
+from austin.stats import MetricType
 from austin.stats import Sample
-from austin.stats import ZERO
 
 SpeedscopeJson = Dict
 SpeedscopeWeight = int
@@ -59,7 +61,7 @@ class SpeedscopeProfile:
     """Speedscope Profile object."""
 
     name: ProfileName
-    unit: Units
+    unit: str
     startValue: int = 0
     endValue: int = 0
     samples: List[List[int]] = field(default_factory=list)
@@ -76,9 +78,13 @@ class SpeedscopeProfile:
 class Speedscope:
     """Speedscope JSON generator."""
 
-    def __init__(self, name: str, indent: Optional[int] = None) -> None:
+    def __init__(
+        self, name: str, mode: Union[Mode, str], indent: Optional[int] = None
+    ) -> None:
         self.name = name
         self.indent = indent
+        self.mode = mode
+        self.mode = Mode.from_metadata(mode) if isinstance(mode, str) else mode
 
         self.profiles: List[SpeedscopeProfile] = []
         self.profile_map: Dict[int, Dict[str, Dict[str, SpeedscopeProfile]]] = {}
@@ -101,9 +107,12 @@ class Speedscope:
 
     def get_profile(self, pid: int, thread: str, metric: str) -> SpeedscopeProfile:
         """Get the profile for the given pid, thread and profile metric."""
-        prefix = {"t": "Time", "m+": "Memory allocation", "m-": "Memory deallocation"}[
-            metric
-        ]
+        prefix = {
+            "cpu": "CPU time",
+            "wall": "Wall time",
+            "m+": "Memory allocation",
+            "m-": "Memory deallocation",
+        }[metric]
         units = Units.BYTES if metric[0] == "m" else Units.MICROSECONDS
         profiles = self.profile_map.setdefault(pid, {}).setdefault(thread, {})
         if metric in profiles:
@@ -120,25 +129,23 @@ class Speedscope:
             self.profiles[-1],
         )
 
-    def add_sample(self, sample: Sample) -> None:
+    def add_samples(self, samples: List[Sample]) -> None:
         """Add a sample to the generator."""
-        if not sample.frames or sample.metrics == ZERO:
-            return
+        if self.mode == Mode.CPU:
+            _ = zip(("cpu",), samples)
+        elif self.mode == Mode.WALL:
+            _ = zip(("cpu",), samples)
+        elif self.mode == Mode.MEMORY:
+            _ = zip(("m+", "m-"), samples)
+        elif self.mode == Mode.FULL:
+            _ = zip(("cpu", "wall", "m+", "m-"), samples)
 
-        self.get_profile(sample.pid, sample.thread, "t").add_sample(
-            [self.get_frame(frame) for frame in sample.frames], sample.metrics.time
-        )
+        for prefix, sample in _:
+            if not sample.frames or sample.metric.value == 0:
+                continue
 
-        if sample.metrics.memory_alloc:
-            self.get_profile(sample.pid, sample.thread, "m+").add_sample(
-                [self.get_frame(frame) for frame in sample.frames],
-                sample.metrics.memory_alloc,
-            )
-
-        if sample.metrics.memory_dealloc:
-            self.get_profile(sample.pid, sample.thread, "m-").add_sample(
-                [self.get_frame(frame) for frame in sample.frames],
-                -sample.metrics.memory_dealloc,
+            self.get_profile(sample.pid, sample.thread, prefix).add_sample(
+                [self.get_frame(frame) for frame in sample.frames], sample.metric.value
             )
 
     def asdict(self) -> SpeedscopeJson:
@@ -193,12 +200,15 @@ def main() -> None:
 
     args = arg_parser.parse_args()
 
-    speedscope = Speedscope(os.path.basename(args.input), args.indent)
     try:
-        with open(args.input, "r") as fin:
+        with AustinFileReader(args.input) as fin:
+            mode = fin.metadata["mode"]
+            speedscope = Speedscope(os.path.basename(args.input), mode, args.indent)
             for line in fin:
                 try:
-                    speedscope.add_sample(Sample.parse(line))
+                    speedscope.add_samples(
+                        Sample.parse(line, MetricType.from_mode(mode))
+                    )
                 except InvalidSample:
                     continue
 

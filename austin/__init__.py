@@ -35,9 +35,11 @@ import psutil
 from austin.config import AustinConfiguration
 
 try:
-    _cached = functools.cache
+    _cached_property = functools.cached_property  # type: ignore[attr-defined]
 except AttributeError:
-    _cached = functools.lru_cache(maxsize=1)
+
+    def _cached_property(f: Callable[..., Any]) -> property:  # type: ignore[no-redef]
+        return property(functools.lru_cache(maxsize=1)(f))
 
 
 class AustinError(Exception):
@@ -76,7 +78,7 @@ class BaseAustin(ABC):
         self,
         sample_callback: Callable[[str], None] = None,
         ready_callback: Callable[[psutil.Process, psutil.Process, str], None] = None,
-        terminate_callback: Callable[[str], None] = None,
+        terminate_callback: Callable[[Dict[str, str]], None] = None,
     ) -> None:
         """The ``BaseAustin`` constructor.
 
@@ -90,7 +92,7 @@ class BaseAustin(ABC):
         self._meta: Dict[str, str] = {}
 
         try:
-            self._sample_callback = sample_callback or self.on_sample_received
+            self._sample_callback = sample_callback or self.on_sample_received  # type: ignore[attr-defined]
         except AttributeError:
             raise AustinError("No sample callback given or implemented.")
 
@@ -203,7 +205,7 @@ class BaseAustin(ABC):
 
     # ---- Default callbacks ----
 
-    def on_terminate(self, stats: str) -> Any:
+    def on_terminate(self, stats: Dict[str, str]) -> Any:
         """Terminate event callback.
 
         Implement to be notified when Austin has terminated gracefully. The
@@ -230,8 +232,7 @@ class BaseAustin(ABC):
 
     # ---- Properties ----
 
-    @property
-    @_cached
+    @_cached_property
     def binary_path(self) -> str:
         """Discover the path of the Austin binary.
 

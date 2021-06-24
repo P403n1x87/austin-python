@@ -21,9 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from enum import Enum
-from typing import Any, BinaryIO, Dict, Tuple
+from typing import Any, BinaryIO, Dict, List, Tuple, Union
 
+from austin.format import Mode
 from austin.format.pprof.profile_pb2 import Profile
 from austin.format.pprof.profile_pb2 import Sample
 from austin.stats import Frame
@@ -32,20 +32,13 @@ from austin.stats import Sample as AustinSample
 PROCESS_ID_LABEL = "Process ID"
 THREAD_ID_LABEL = "Thread ID"
 
-TIME_TYPE = "Sampling time"
+CPU_TYPE = "CPU time"
+WALL_TYPE = "Wall time"
 TIME_UNIT = "μs"
-MEMORY_TYPE = "Memory"
+
 MEMORY_ALLOC_TYPE = "Allocated memory"
 MEMORY_DEALLOC_TYPE = "Deallocated memory"
 MEMORY_UNIT = "B"
-
-
-class Mode(Enum):
-    """Austin profiling mode."""
-
-    TIME = 0
-    MEMORY = 1
-    FULL = 2
 
 
 class PProf:
@@ -54,36 +47,46 @@ class PProf:
     Used to convert Austin collapsed format into the pprof protobuf format.
     """
 
-    def __init__(self, mode: Mode = Mode.TIME) -> None:
+    def __init__(self, mode: Union[Mode, str]) -> None:
         self._string_table: Dict[str, int] = {}
         self._location_map: Dict[Frame, int] = {}
-        self._function_map: [Dict[Tuple[str, str]], int] = {}
+        self._function_map: Dict[Tuple[str, str], int] = {}
 
         # Create the protobuf Profile message
         self.profile = Profile()
         self.profile.string_table.append("")
 
         # Add sample types according to the mode
+        if isinstance(mode, str):
+            mode = Mode.from_metadata(mode)
+
         if mode == Mode.MEMORY:
-            _ = self.profile.sample_type.add()
-            _.type = self.get_string(MEMORY_TYPE)
-            _.unit = self.get_string(MEMORY_UNIT)
+            self._add_memory_sample_types()
 
-        elif mode in (Mode.TIME, Mode.FULL):
-            _ = self.profile.sample_type.add()
-            _.type = self.get_string(TIME_TYPE)
-            _.unit = self.get_string(TIME_UNIT)
+        elif mode == Mode.CPU:
+            self._add_time_sample_type(CPU_TYPE)
 
-        if mode == Mode.FULL:
-            _ = self.profile.sample_type.add()
-            _.type = self.get_string(MEMORY_ALLOC_TYPE)
-            _.unit = self.get_string(MEMORY_UNIT)
+        elif mode == Mode.WALL:
+            self._add_time_sample_type(WALL_TYPE)
 
-            _ = self.profile.sample_type.add()
-            _.type = self.get_string(MEMORY_DEALLOC_TYPE)
-            _.unit = self.get_string(MEMORY_UNIT)
+        elif mode == Mode.FULL:
+            self._add_time_sample_type(CPU_TYPE)
+            self._add_time_sample_type(WALL_TYPE)
+            self._add_memory_sample_types()
 
         self.mode = mode
+
+    def _add_sample_type(self, type: str, unit: str) -> None:
+        _ = self.profile.sample_type.add()
+        _.type = self.get_string(type)
+        _.unit = self.get_string(unit)
+
+    def _add_time_sample_type(self, type: str) -> None:
+        self._add_sample_type(type, TIME_UNIT)
+
+    def _add_memory_sample_types(self) -> None:
+        self._add_sample_type(MEMORY_ALLOC_TYPE, MEMORY_UNIT)
+        self._add_sample_type(MEMORY_DEALLOC_TYPE, MEMORY_UNIT)
 
     def get_string(self, string: str) -> int:
         """Get the string table index for the given string."""
@@ -134,25 +137,21 @@ class PProf:
 
             return location.id
 
-    def add_sample(self, sample: AustinSample) -> None:
+    def add_samples(self, samples: List[AustinSample]) -> None:
         """Add a sample to the pprof generator."""
         # Create new pprof sample
         pprof_sample = self.profile.sample.add()
 
         # Add process and thread id labels
-        self.add_label_to_sample(pprof_sample, THREAD_ID_LABEL, sample.thread)
-        self.add_label_to_sample(pprof_sample, PROCESS_ID_LABEL, sample.pid)
+        self.add_label_to_sample(pprof_sample, THREAD_ID_LABEL, samples[0].thread)
+        self.add_label_to_sample(pprof_sample, PROCESS_ID_LABEL, samples[0].pid)
 
         # Add metrics
-        if self.mode in (Mode.TIME, Mode.MEMORY):
-            pprof_sample.value.append(sample.metrics.time)
-        else:
-            pprof_sample.value.append(sample.metrics.time)
-            pprof_sample.value.append(sample.metrics.memory_alloc)
-            pprof_sample.value.append(sample.metrics.memory_dealloc)
+        for sample in samples:
+            pprof_sample.value.append(sample.metric.value)
 
         # Add locations. Top of the stack first.
-        for frame in sample.frames[::-1]:
+        for frame in samples[0].frames[::-1]:
             pprof_sample.location_id.append(self.get_location(frame))
 
     def dump(self, stream: BinaryIO) -> None:

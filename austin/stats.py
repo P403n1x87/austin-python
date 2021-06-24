@@ -21,10 +21,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import dataclasses
 from dataclasses import dataclass
 from dataclasses import field
+from enum import Enum
 import re
-from typing import Any, Dict, List, Optional, TextIO, Type
+from typing import Any, Dict, Generator, Iterator, List, Optional, TextIO, Type, Union
 
 from austin import AustinError
 
@@ -61,84 +63,99 @@ class InvalidSample(AustinError):
 # ---- Dataclasses ----
 
 
+class Metadata(dict):
+    """Austin Metadata."""
+
+    def add(self, line: str) -> None:
+        """Add a metadata line."""
+        assert line.startswith("# ")
+        key, _, value = line[2:].partition(":")
+        self[key] = value.strip()
+
+
+class MetricType(Enum):
+    """Sample metric type."""
+
+    TIME = 0
+    MEMORY = 1
+
+    @classmethod
+    def from_mode(cls, mode: str) -> Optional["MetricType"]:
+        """Convert metadata mode to metric type."""
+        return {
+            "cpu": MetricType.TIME,
+            "wall": MetricType.TIME,
+            "memory": MetricType.MEMORY,
+            "full": None,
+        }.get(mode)
+
+
 @dataclass(frozen=True)
-class Metrics:
+class Metric:
     """Austin metrics."""
 
-    time: MicroSeconds = 0
-    idle: bool = False
-    memory: KiloBytes = 0
+    type: MetricType
+    value: Union[MicroSeconds, KiloBytes] = 0
 
-    def __post_init__(self) -> None:
-        """Finish initialisation."""
-        object.__setattr__(self, "memory_alloc", 0 if self.memory < 0 else self.memory)
-        object.__setattr__(
-            self, "memory_dealloc", 0 if self.memory > 0 else -self.memory
-        )
-        object.__setattr__(self, "idle", bool(self.idle))
-
-    def __add__(self, other: "Metrics") -> "Metrics":
-        """Add metrics together (algebraically and component-wise)."""
-        return Metrics(
-            time=self.time + other.time,
-            memory=self.memory + other.memory,
+    def __add__(self, other: "Metric") -> "Metric":
+        """Add metrics together (algebraically)."""
+        assert self.type == other.type
+        return Metric(
+            type=self.type,
+            value=self.value + other.value,
         )
 
-    def __sub__(self, other: "Metrics") -> "Metrics":
-        """Subtract metrics (algebraically and component-wise)."""
-        return Metrics(
-            time=self.time - other.time,
-            memory=self.memory - other.memory,
+    def __sub__(self, other: "Metric") -> "Metric":
+        """Subtract metrics (algebraically)."""
+        assert self.type == other.type
+        return Metric(
+            type=self.type,
+            value=self.value - other.value,
         )
 
-    def __gt__(self, other: "Metrics") -> "Metrics":
+    def __gt__(self, other: "Metric") -> bool:
         """Strict comparison of metrics."""
-        return (
-            self.time > other.time
-            and self.memory_alloc > other.memory_alloc
-            and self.memory_dealloc > other.memory_dealloc
-        )
+        assert self.type == other.type
+        return self.value > other.value
 
-    def __ge__(self, other: "Metrics") -> "Metrics":
+    def __ge__(self, other: "Metric") -> bool:
         """Comparison of metrics."""
-        return (
-            self.time >= other.time
-            and self.memory >= other.memory_alloc
-            and self.memory_dealloc >= other.memory_dealloc
-        )
+        assert self.type == other.type
+        return self.value >= other.value
 
-    def copy(self) -> "Metrics":
+    def copy(self) -> "Metric":
         """Make a copy of this object."""
-        return self + ZERO
+        return dataclasses.replace(self)
 
     @staticmethod
-    def parse(sample: str, time: bool = True) -> "Metrics":
+    def parse(metrics: str, metric_type: Optional[MetricType] = None) -> List["Metric"]:
         """Parse the metrics from a sample.
 
         Returns a tuple containing the parsed metrics and the head of the
         sample for further processing.
         """
         try:
-            head, _, data = sample.rpartition(" ")
-            metrics = tuple(int(_) for _ in data.split(","))
-            if len(metrics) == 3:
-                return Metrics(*metrics), head
-            elif len(metrics) == 1:
-                return (
-                    Metrics(time=metrics[0]) if time else Metrics(memory=metrics[0]),
-                    head,
-                )
-            else:
-                raise InvalidSample(sample)
+            ms = [int(_) for _ in metrics.split(",")]
+            if len(ms) == 3:
+                return [
+                    Metric(MetricType.TIME, ms[0] if ms[1] == 0 else 0),
+                    Metric(MetricType.TIME, ms[0]),
+                    Metric(MetricType.MEMORY, ms[2] if ms[2] >= 0 else 0),
+                    Metric(MetricType.MEMORY, -ms[2] if ms[2] < 0 else 0),
+                ]
+            elif len(ms) != 1:
+                raise ValueError()
+
+            assert metric_type is not None
+
+            return [Metric(metric_type, ms[0])]
+
         except ValueError:
-            raise InvalidSample(sample)
+            raise InvalidSample(metrics)
 
     def __str__(self) -> str:
-        """Stringify the metrics."""
-        return f"{self.time} {self.memory_alloc} {self.memory_dealloc}"
-
-
-ZERO = Metrics()
+        """Stringify the metric."""
+        return str(self.value)
 
 
 @dataclass(frozen=True)
@@ -181,7 +198,7 @@ class Sample:
 
     pid: ProcessId
     thread: ThreadName
-    metrics: Metrics
+    metric: Metric
     frames: List[Frame] = field(default_factory=list)
 
     _ALT_FORMAT_RE = re.compile(r";L([0-9]+)")
@@ -190,15 +207,13 @@ class Sample:
     def is_full(sample: str) -> bool:
         """Determine whether the sample has full metrics."""
         try:
-            # TODO: UPDATE!!
-            thread_frames, *metrics = sample.rsplit(maxsplit=3)
-            int(metrics[-3])
-            return True
+            _, _, metrics = sample.rpartition(" ")
+            return len(metrics.split(",")) == 3
         except (ValueError, IndexError):
             return False
 
     @staticmethod
-    def parse(sample: str) -> "Sample":
+    def parse(sample: str, metric_type: Optional[MetricType] = None) -> List["Sample"]:
         """Parse the given string as a frame.
 
         A string representing a sample has the structure
@@ -215,18 +230,17 @@ class Sample:
         if sample[0] != "P":
             raise InvalidSample(f"No process ID in sample '{sample}'")
 
-        process, _, rest = sample.partition(";")
+        head, _, metrics = sample.rpartition(" ")
+        process, _, rest = head.partition(";")
         try:
             pid = int(process[1:])
         except ValueError:
             raise InvalidSample(f"Invalid process ID in sample '{sample}'")
 
-        metrics, thread_frames = Metrics.parse(rest)
-
-        if thread_frames[0] != "T":
+        if rest[0] != "T":
             raise InvalidSample(f"No thread ID in sample '{sample}'")
 
-        thread, _, frames = thread_frames.partition(";")
+        thread, _, frames = rest.partition(";")
         thread = thread[1:]
 
         if frames:
@@ -234,14 +248,18 @@ class Sample:
                 frames = Sample._ALT_FORMAT_RE.sub(r":\1", frames)
 
         try:
-            return Sample(
-                pid=int(pid),
-                thread=thread,
-                metrics=metrics,
-                frames=[Frame.parse(frame) for frame in frames.split(";")]
-                if frames
-                else [],
-            )
+            ms = Metric.parse(metrics, metric_type)
+            return [
+                Sample(
+                    pid=int(pid),
+                    thread=thread,
+                    metric=metric,
+                    frames=[Frame.parse(frame) for frame in frames.split(";")]
+                    if frames
+                    else [],
+                )
+                for metric in ms
+            ]
         except ValueError as e:
             raise InvalidSample(f"Sample has invalid metric values: {sample}") from e
         except InvalidFrame as e:
@@ -267,8 +285,8 @@ class HierarchicalStats:
     """
 
     label: Any
-    own: Metrics = field(default_factory=Metrics)
-    total: Metrics = field(default_factory=Metrics)
+    own: Metric
+    total: Metric
     children: Dict[Any, "HierarchicalStats"] = field(default_factory=dict)
 
     def __lshift__(self, other: "HierarchicalStats") -> "HierarchicalStats":
@@ -296,7 +314,11 @@ class HierarchicalStats:
         if not self.children:
             return [f";{prefix}{self.label} {self.own}"]
 
-        own = [] if self.own == Metrics() else [f";{prefix}{self.label} {self.own}"]
+        own = (
+            []
+            if self.own == Metric(MetricType.TIME)
+            else [f";{prefix}{self.label} {self.own}"]
+        )
         return own + [
             f";{prefix}{self.label}{rest}"
             for _, child in self.children.items()
@@ -310,14 +332,14 @@ class FrameStats(HierarchicalStats):
 
     label: Frame
     height: int = 0
-    children: Dict[Frame, "FrameStats"] = field(default_factory=dict)
+    children: Dict[Frame, "FrameStats"] = field(default_factory=dict)  # type: ignore[assignment]
 
 
 class ThreadStats(HierarchicalStats):
     """Thread statistics."""
 
     label: ThreadName
-    children: Dict[Frame, FrameStats] = field(default_factory=dict)
+    children: Dict[Frame, FrameStats] = field(default_factory=dict)  # type: ignore[assignment]
 
     def collapse(self, prefix: str = "T") -> List[str]:
         """Collapse the hierarchical statistics."""
@@ -348,6 +370,67 @@ class ProcessStats:
         return self.threads.get(thread_name)
 
 
+class AustinStatsType(Enum):
+    """Austin stats type."""
+
+    WALL = "wall"
+    CPU = "cpu"
+    MEMORY_ALLOC = "memory_alloc"
+    MEMORY_DEALLOC = "memory_dealloc"
+
+
+class AustinFileReader:
+    """Austin file reader.
+
+    Conveniently read an Austin sample file by also parsing any header and
+    footer metadata.
+    """
+
+    def __init__(self, file: str) -> None:
+        self.file = file
+        self.metadata = Metadata()
+        self._stream: Optional[TextIO] = None
+        self._stream_iter: Optional[Iterator] = None
+
+    def _read_meta(self) -> None:
+        assert self._stream_iter is not None
+
+        for line in self._stream_iter:
+            if not line.startswith("# ") or line == "\n":
+                break
+            self.metadata.add(line)
+
+    def __enter__(self) -> "AustinFileReader":
+        """Open the Austin file and read the metadata."""
+        self._stream = open(self.file, "r")
+        self._stream_iter = iter(self._stream)
+
+        self._read_meta()
+
+        return self
+
+    def __iter__(self) -> Iterator:
+        """Iterator over the samples in the Austin file."""
+
+        def _() -> Generator[str, None, None]:
+            assert self._stream_iter is not None
+
+            for line in self._stream_iter:
+                if line == "\n":
+                    break
+                yield line
+
+            self._read_meta()
+
+        return _()
+
+    def __exit__(self, *args: Any) -> None:
+        """Close the Austin file."""
+        assert self._stream is not None
+
+        self._stream.close()
+
+
 @dataclass
 class AustinStats:
     """Austin statistics.
@@ -358,11 +441,12 @@ class AustinStats:
     accordingly.
     """
 
-    child_pid: ProcessId = 0
+    stats_type: AustinStatsType
     processes: Dict[ProcessId, ProcessStats] = field(default_factory=dict)
 
     def dump(self, stream: TextIO) -> None:
         """Dump the statistics to the given text stream."""
+        stream.write(f"# mode: {self.stats_type.value.partition('_')[0]}\n\n")
         for _, process in self.processes.items():
             samples = process.collapse()
 
@@ -377,12 +461,69 @@ class AustinStats:
         return self.processes[pid]
 
     @classmethod
-    def load(cls: Type["AustinStats"], stream: TextIO) -> "AustinStats":
+    def load(
+        cls: Type["AustinStats"], stream: TextIO
+    ) -> Dict[AustinStatsType, "AustinStats"]:
         """Load statistics from the given text stream."""
-        stats = cls()
+        meta = Metadata()
         for line in stream:
-            stats.update(Sample.parse(line))
-        return stats
+            if not line.startswith("# "):
+                break
+            meta.add(line)
+
+        assert "mode" in meta
+        metric_type = {
+            "wall": MetricType.TIME,
+            "cpu": MetricType.TIME,
+            "memory": MetricType.MEMORY,
+        }.get(meta["mode"])
+
+        if metric_type is None:
+            profiles = {
+                AustinStatsType.CPU: AustinStats(AustinStatsType.CPU),
+                AustinStatsType.WALL: AustinStats(AustinStatsType.WALL),
+                AustinStatsType.MEMORY_ALLOC: AustinStats(AustinStatsType.MEMORY_ALLOC),
+                AustinStatsType.MEMORY_DEALLOC: AustinStats(
+                    AustinStatsType.MEMORY_DEALLOC
+                ),
+            }
+        elif metric_type is MetricType.MEMORY:
+            profiles = {
+                AustinStatsType.MEMORY_ALLOC: AustinStats(AustinStatsType.MEMORY_ALLOC),
+                AustinStatsType.MEMORY_DEALLOC: AustinStats(
+                    AustinStatsType.MEMORY_DEALLOC
+                ),
+            }
+        else:
+            stats_type = (
+                AustinStatsType.CPU if meta["mode"] == "cpu" else AustinStatsType.WALL
+            )
+            profiles = {stats_type: AustinStats(stats_type)}
+
+        for line in stream:
+            try:
+                samples = Sample.parse(line, metric_type)
+            except InvalidSample:
+                continue
+
+            if metric_type is None:
+                cpu, wall, memory_alloc, memory_dealloc = samples
+
+                profiles[AustinStatsType.WALL].update(wall)
+                profiles[AustinStatsType.CPU].update(cpu)
+                profiles[AustinStatsType.MEMORY_ALLOC].update(memory_alloc)
+                profiles[AustinStatsType.MEMORY_DEALLOC].update(memory_dealloc)
+
+            elif metric_type is MetricType.MEMORY:
+                memory_alloc, memory_dealloc = samples
+
+                profiles[AustinStatsType.MEMORY_ALLOC].update(memory_alloc)
+                profiles[AustinStatsType.MEMORY_DEALLOC].update(memory_dealloc)
+
+            else:
+                profiles[stats_type].update(samples[0])
+
+        return profiles
 
     def update(self, sample: Sample) -> None:
         """Update the statistics with a new sample.
@@ -391,14 +532,18 @@ class AustinStats:
         by using :func:`Sample.parse` on a sample string passed by Austin to
         the sample callback.
         """
-        pid = sample.pid or self.child_pid
-        thread_stats = ThreadStats(sample.thread, total=sample.metrics)
+        print(sample)
+        zero = Metric(sample.metric.type, 0)
+        pid = sample.pid
+        thread_stats = ThreadStats(sample.thread, own=zero, total=sample.metric)
 
         # Convert the list of frames into a nested FrameStats instance
         stats: HierarchicalStats = thread_stats
         container = thread_stats.children
         for height, frame in enumerate(sample.frames):
-            stats = FrameStats(label=frame, height=height, total=sample.metrics)
+            stats = FrameStats(
+                label=frame, height=height, own=zero, total=sample.metric
+            )
             container[frame] = stats
             container = stats.children
         stats.own = stats.total.copy()

@@ -24,14 +24,13 @@
 from argparse import ArgumentParser
 from difflib import SequenceMatcher
 from io import StringIO
-from typing import List, TextIO, Tuple
+from typing import List, Set, TextIO, Tuple
 
 from austin.format.compress import compress
 from austin.stats import Frame
 from austin.stats import InvalidSample
-from austin.stats import Metrics
+from austin.stats import Metric
 from austin.stats import Sample
-from austin.stats import ZERO
 
 FoldedStack = List[Frame]
 
@@ -58,7 +57,7 @@ def _similarities(
 
 def _match(
     x: List[FoldedStack], y: List[FoldedStack], threshold: float = 0.0
-) -> List[Tuple[int, int]]:
+) -> Set[Tuple[int, int]]:
     """O(len(x) * len(y))."""
     ss = _similarities(x, y)
     mx, my = set(), set()
@@ -90,7 +89,7 @@ def diff(a: TextIO, b: TextIO) -> str:
         compress(source, _)
         return _.getvalue()
 
-    def get_frames(text: str) -> List[Tuple[FoldedStack, Metrics]]:
+    def get_frames(text: str) -> List[Tuple[FoldedStack, Metric]]:
         """Get the folded stacks and metrics from a string of samples."""
         x = []
         for _ in text.splitlines(keepends=False):
@@ -113,7 +112,7 @@ def diff(a: TextIO, b: TextIO) -> str:
     for i, j in ms:
         matched.add(i)
         delta = fa[i][1] - fb[j][1]
-        if delta >= ZERO:
+        if delta >= 0:
             stacks.append((fa[i][0], delta))
         if delta.memory_alloc or delta.memory_dealloc:
             time_only = False

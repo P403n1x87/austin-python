@@ -532,7 +532,6 @@ class AustinStats:
         by using :func:`Sample.parse` on a sample string passed by Austin to
         the sample callback.
         """
-        print(sample)
         zero = Metric(sample.metric.type, 0)
         pid = sample.pid
         thread_stats = ThreadStats(sample.thread, own=zero, total=sample.metric)

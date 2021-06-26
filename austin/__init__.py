@@ -26,6 +26,7 @@ from abc import ABC
 from abc import abstractmethod
 import argparse
 import functools
+from itertools import takewhile
 import os
 import os.path
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -40,6 +41,24 @@ except AttributeError:
 
     def _cached_property(f: Callable[..., Any]) -> property:  # type: ignore[no-redef]
         return property(functools.lru_cache(maxsize=1)(f))
+
+
+SemVer = Tuple[int, int, int]
+
+
+def _to_semver(version: Optional[str]) -> SemVer:
+    if version is None:
+        return (0, 0, 0)
+
+    return (  # type: ignore[return-value]
+        tuple(
+            int(_)
+            for _ in "".join(
+                list(takewhile(lambda _: _.isdigit() or _ == ".", version))
+            ).split(".")
+        )
+        + (0, 0, 0)
+    )[:3]
 
 
 class AustinError(Exception):
@@ -73,6 +92,7 @@ class BaseAustin(ABC):
     """
 
     BINARY = "austin"
+    BINARY_VERSION = (3, 0, 0)
 
     def __init__(
         self,
@@ -203,6 +223,23 @@ class BaseAustin(ABC):
 
         self._sample_callback(sample.rstrip())
 
+    def check_exit(self, rcode: int, stderr: Optional[str]) -> None:
+        """Check Austin exit status."""
+        if rcode:
+            if rcode in (-15, 15):
+                raise AustinTerminated()
+            raise AustinError(f"({rcode}) {stderr}")
+
+    def check_version(self) -> None:
+        """Check for the minimum Austin binary version."""
+        austin_version = self.version
+        if austin_version is None:
+            raise AustinError("Cannot determine Austin version")
+        if austin_version < self.BINARY_VERSION:
+            raise AustinError(
+                f"Incompatible Austin version (got {austin_version}, expected >= {self.BINARY_VERSION})"
+            )
+
     # ---- Default callbacks ----
 
     def on_terminate(self, stats: Dict[str, str]) -> Any:
@@ -266,11 +303,11 @@ class BaseAustin(ABC):
         return self.BINARY
 
     @property
-    def version(self) -> Optional[str]:
+    def version(self) -> SemVer:
         """Austin version."""
-        return self._meta.get("austin")
+        return _to_semver(self._meta.get("austin"))
 
     @property
-    def python_version(self) -> Optional[str]:
+    def python_version(self) -> SemVer:
         """The version of the detected Python interpreter."""
-        return self._meta.get("python")
+        return _to_semver(self._meta.get("python"))

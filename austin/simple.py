@@ -26,7 +26,6 @@ import sys
 from typing import Dict, List
 
 from austin import AustinError
-from austin import AustinTerminated
 from austin import BaseAustin
 from austin.cli import AustinArgumentParser
 
@@ -95,6 +94,8 @@ class SimpleAustin(BaseAustin):
             if not self._read_meta():
                 raise AustinError("Austin did not start properly")
 
+            self.check_version()
+
             self._ready_callback(
                 *self._get_process_info(
                     AustinArgumentParser().parse_args(args), self.proc.pid
@@ -108,17 +109,17 @@ class SimpleAustin(BaseAustin):
 
                 self.submit_sample(data)
 
-        finally:
-            self._running = False
             self._terminate_callback(self._read_meta())
-
             try:
                 stderr = self.proc.communicate(timeout=1)[1].decode().rstrip()
             except subprocess.TimeoutExpired:
                 stderr = ""
+            self.check_exit(self.proc.wait(), stderr)
 
-            retcode = self.proc.wait()
-            if retcode:
-                if retcode in (-15, 15):
-                    raise AustinTerminated(stderr)
-                raise AustinError(f"({self.proc.returncode}) {stderr}")
+        except Exception:
+            self.proc.terminate()
+            self.proc.wait()
+            raise
+
+        finally:
+            self._running = False

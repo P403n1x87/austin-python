@@ -16,6 +16,7 @@ LINT_LOCATIONS = ["austin", "test", "noxfile.py"]
 LINT_EXCLUDES = ["austin/format/pprof/profile_pb2.py"]
 
 MYPY_LOCATIONS = LINT_LOCATIONS[:1]
+MYPY_EXCLUDES = ["austin/tools/diff.py"]
 
 
 # ---- Helpers ----
@@ -65,6 +66,8 @@ def mypy(session):
         "--install-types",
         "--non-interactive",
         *MYPY_LOCATIONS,
+        "--exclude",
+        *MYPY_EXCLUDES,
     )
 
 

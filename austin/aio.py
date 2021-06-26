@@ -26,7 +26,6 @@ import sys
 from typing import Dict, List, Optional
 
 from austin import AustinError
-from austin import AustinTerminated
 from austin import BaseAustin
 from austin.cli import AustinArgumentParser
 
@@ -120,7 +119,8 @@ class AsyncAustin(BaseAustin):
             if not await self._read_meta():
                 raise AustinError("Austin did not start properly")
 
-            # Austin started correctly
+            self.check_version()
+
             self._ready_callback(
                 *self._get_process_info(
                     AustinArgumentParser().parse_args(args), self.proc.pid
@@ -135,15 +135,13 @@ class AsyncAustin(BaseAustin):
 
                 self.submit_sample(data)
 
-        finally:
-            # Wait for the subprocess to terminate
-            self._running = False
-
             self._terminate_callback(await self._read_meta())
+            self.check_exit(await self.proc.wait(), await self._read_stderr())
 
-            stderr = await self._read_stderr()
-            rcode = await self.proc.wait()
-            if rcode:
-                if rcode in (-15, 15):
-                    raise AustinTerminated(stderr)
-                raise AustinError(f"({rcode}) {stderr}")
+        except Exception:
+            self.proc.terminate()
+            await self.proc.wait()
+            raise
+
+        finally:
+            self._running = False

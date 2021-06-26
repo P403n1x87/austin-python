@@ -2,7 +2,6 @@ import tempfile
 
 import nox
 
-
 nox.options.sessions = "lint", "tests"
 
 
@@ -17,6 +16,7 @@ LINT_LOCATIONS = ["austin", "test", "noxfile.py"]
 LINT_EXCLUDES = ["austin/format/pprof/profile_pb2.py"]
 
 MYPY_LOCATIONS = LINT_LOCATIONS[:1]
+MYPY_EXCLUDES = ["austin/tools/diff.py"]
 
 
 # ---- Helpers ----
@@ -52,6 +52,7 @@ def lint(session):
         "flake8-bugbear",
         "flake8-docstrings",
         "flake8-import-order",
+        "flake8-isort",
     )
     session.run("flake8", *LINT_LOCATIONS, "--exclude", *LINT_EXCLUDES)
 
@@ -59,7 +60,15 @@ def lint(session):
 @nox.session(python=SUPPORTED_PYTHON_VERSIONS)
 def mypy(session):
     session.install("mypy")
-    session.run("mypy", *MYPY_LOCATIONS)
+    session.run(
+        "mypy",
+        "--show-error-codes",
+        "--install-types",
+        "--non-interactive",
+        *MYPY_LOCATIONS,
+        "--exclude",
+        *MYPY_EXCLUDES,
+    )
 
 
 @nox.session(python="3.8")

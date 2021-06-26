@@ -23,6 +23,7 @@
 
 
 import os.path
+from typing import Any, Dict
 
 import toml
 
@@ -38,7 +39,7 @@ class AustinConfiguration:
 
     RC = os.path.join(os.path.expanduser("~"), ".austinrc")
 
-    __borg__ = {}
+    __borg__: Dict[str, Any] = {}
 
     def __init__(self) -> None:
         self.__dict__ = self.__borg__

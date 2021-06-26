@@ -21,7 +21,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from argparse import ArgumentParser, Namespace, REMAINDER
+from argparse import ArgumentParser
+from argparse import Namespace
+from argparse import REMAINDER
 from typing import Any, Callable, List, NoReturn
 
 from austin import AustinError
@@ -67,7 +69,7 @@ class AustinArgumentParser(ArgumentParser):
 
         def time(units: str) -> Callable[[str], int]:
             """Parse time argument with units."""
-            base = {"us": 1, "ms": 1e3, "s": 1e6}[units]
+            base = int({"us": 1, "ms": 1e3, "s": 1e6}[units])
 
             def parser(arg: str) -> int:
                 if arg.endswith("us"):
@@ -171,7 +173,7 @@ class AustinArgumentParser(ArgumentParser):
                 "its arguments.",
             )
 
-    def parse_args(
+    def parse_args(  # type: ignore[override]
         self, args: List[str] = None, namespace: Namespace = None
     ) -> Namespace:
         """Parse the list of arguments.

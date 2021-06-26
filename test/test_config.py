@@ -25,8 +25,9 @@ import os
 import os.path
 import tempfile
 
-from austin.config import AustinConfiguration as AC
 import toml
+
+from austin.config import AustinConfiguration as AC
 
 
 def test_config_empty_binary():

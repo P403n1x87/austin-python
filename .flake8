@@ -1,9 +1,10 @@
 [flake8]
 select = ANN,B,B9,C,D,E,F,W,I
-ignore = ANN101,D100,D104,D107,E203,E501,W503,W606
+ignore = ANN101,ANN102,B950,D100,D104,D107,E203,E501,I001,I005,W503,W606
 max-line-length = 80
 docstring-convention = google
 import-order-style = google
+application-import-names = austin
 per-file-ignores =
   test/*:ANN,D
   noxfile.py:ANN,D

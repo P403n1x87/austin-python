@@ -24,10 +24,10 @@
 import asyncio
 import sys
 
-from austin import AustinError
-from austin.aio import AsyncAustin
 from pytest import raises
 
+from austin import AustinError
+from austin.aio import AsyncAustin
 
 if sys.platform == "win32":
     loop = asyncio.ProactorEventLoop()
@@ -53,9 +53,10 @@ class TestAsyncAustin(AsyncAustin):
         self._sample_received = True
 
     def on_terminate(self, data):
-        assert "Long" in data
-        assert "Error" in data
-        assert "time" in data
+        assert "duration" in data
+        assert "errors" in data
+        assert "sampling" in data
+        assert "saturation" in data
         self._terminate = True
 
     def assert_callbacks_called(self):
@@ -80,7 +81,7 @@ def test_async_time():
                 "100",
                 "python",
                 "-c",
-                "for i in range(1000000): print(i)",
+                "from time import sleep; sleep(1)",
             ]
         )
     )
@@ -107,7 +108,7 @@ def test_async_memory():
                 "100",
                 "python",
                 "-c",
-                "for i in range(1000000): print(i)",
+                "[i for i in range(1000000)]",
             ]
         )
     )
@@ -129,7 +130,7 @@ def test_async_terminate():
 
     try:
         asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(austin.start(["-t", "10", "-Ci", "10000", "python"]), 5)
+            asyncio.wait_for(austin.start(["-t", "10", "-Ci", "10ms", "python"]), 30)
         )
     except AustinError:
         austin.assert_callbacks_called()

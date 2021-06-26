@@ -21,10 +21,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from austin import AustinError, AustinTerminated
+from pytest import raises
+
+from austin import AustinError
+from austin import AustinTerminated
 from austin.simple import SimpleAustin
 from austin.threads import ThreadedAustin
-from pytest import raises
 
 
 def check_raises(exc):
@@ -57,9 +59,10 @@ class TestThreadedAustin(ThreadedAustin):
         self._sample_received = True
 
     def on_terminate(self, data):
-        assert "Long" in data
-        assert "Error" in data
-        assert "time" in data
+        assert "duration" in data
+        assert "errors" in data
+        assert "sampling" in data
+        assert "saturation" in data
         self._terminate = True
 
     def assert_callbacks_called(self):

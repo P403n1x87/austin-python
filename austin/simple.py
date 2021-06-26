@@ -23,9 +23,10 @@
 
 import subprocess
 import sys
-from typing import List
+from typing import Dict, List
 
-from austin import AustinError, AustinTerminated, BaseAustin
+from austin import AustinError
+from austin import BaseAustin
 from austin.cli import AustinArgumentParser
 
 
@@ -57,22 +58,27 @@ class SimpleAustin(BaseAustin):
             pass
     """
 
-    def _read_header(self) -> bool:
-        while self._python_version is None:
-            line = (self.proc.stderr.readline()).decode().rstrip()
-            if not line:
-                return False
-            if " austin version: " in line:
-                _, _, self._version = line.partition(": ")
-            elif " Python version: " in line:
-                _, _, self._python_version = line.partition(": ")
-        return True
+    def _read_meta(self) -> Dict[str, str]:
+        assert self.proc.stdout
+
+        meta = {}
+
+        while True:
+            line = self.proc.stdout.readline().decode().rstrip()
+            if not (line and line.startswith("# ")):
+                break
+            key, _, value = line[2:].partition(": ")
+            meta[key] = value
+
+        self._meta.update(meta)
+
+        return meta
 
     def start(self, args: List[str] = None) -> None:
         """Start the Austin process."""
         try:
             self.proc = subprocess.Popen(
-                [self.binary_path] + (args or sys.argv[1:]),
+                [self.binary_path] + ["-P"] + (args or sys.argv[1:]),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
@@ -85,8 +91,10 @@ class SimpleAustin(BaseAustin):
             raise AustinError("Standard error stream is unexpectedly missing")
 
         try:
-            if not self._read_header():
+            if not self._read_meta():
                 raise AustinError("Austin did not start properly")
+
+            self.check_version()
 
             self._ready_callback(
                 *self._get_process_info(
@@ -95,21 +103,23 @@ class SimpleAustin(BaseAustin):
             )
 
             while self.is_running():
-                data = self.proc.stdout.readline()
+                data = self.proc.stdout.readline().rstrip()
                 if not data:
                     break
 
                 self.submit_sample(data)
 
-        finally:
+            self._terminate_callback(self._read_meta())
             try:
                 stderr = self.proc.communicate(timeout=1)[1].decode().rstrip()
             except subprocess.TimeoutExpired:
                 stderr = ""
+            self.check_exit(self.proc.wait(), stderr)
+
+        except Exception:
+            self.proc.terminate()
+            self.proc.wait()
+            raise
+
+        finally:
             self._running = False
-            self._terminate_callback(stderr)
-            retcode = self.proc.wait()
-            if retcode:
-                if retcode in (-15, 15):
-                    raise AustinTerminated(stderr)
-                raise AustinError(f"({self.proc.returncode}) {stderr}")

@@ -24,17 +24,25 @@
 import io
 
 from austin.format.pprof import PProf
+from austin.stats import AustinFileReader
+from austin.stats import InvalidSample
+from austin.stats import MetricType
 from austin.stats import Sample
 
 
 def test_pprof():
-    with open("test/data/austin.out") as austin:
+    with AustinFileReader("test/data/austin.out") as austin:
+        mode = austin.metadata["mode"]
+        prof = PProf(mode)
+
+        for line in austin:
+            try:
+                prof.add_samples(Sample.parse(line, MetricType.from_mode(mode)))
+            except InvalidSample:
+                continue
+
+        bstream = io.BytesIO()
+        prof.dump(bstream)
+
         with open("test/data/austin.pprof", "rb") as pprof:
-            prof = PProf()
-            for line in austin:
-                prof.add_sample(Sample.parse(line))
-
-            bstream = io.BytesIO()
-            prof.dump(bstream)
-
             assert pprof.read() == bstream.getvalue()

@@ -21,33 +21,32 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import TextIO
+from typing import Dict, TextIO
 
-from austin.stats import InvalidSample, Metrics, ZERO
+from austin.stats import AustinFileReader
 
 
-def compress(source: TextIO, dest: TextIO, counts: bool = False) -> None:
+def compress(source: AustinFileReader, dest: TextIO, counts: bool = False) -> None:
     """Compress the source stream.
 
     Aggregates the metrics on equal collapsed stacks. If ``counts`` is ``True``
     then time samples are counted by occurrence rather than by sampling
     duration.
     """
-    stats = {}
+    stats: Dict[str, int] = {}
 
     for line in source:
-        try:
-            metrics, head = Metrics.parse(line)
-            if counts and metrics.time > 1:
-                metrics = Metrics(1, metrics.memory_alloc, metrics.memory_dealloc)
-        except InvalidSample:
-            continue
-        if metrics:
-            stats[head] = stats.get(head, ZERO) + metrics
+        head, _, metric = line.rpartition(" ")
+        if "," in metric:
+            raise RuntimeError("Cannot compress samples with full metrics.")
 
-    dest.writelines(
-        [head + " " + str(metrics) + "\n" for head, metrics in stats.items()]
-    )
+        value = 1 if counts else int(metric)
+        if metric:
+            stats[head] = stats.get(head, 0) + value
+
+    dest.writelines([f"# {k}: {v}\n" for k, v in source.metadata.items()])
+    dest.write("\n")
+    dest.writelines([head + " " + str(metric) + "\n" for head, metric in stats.items()])
 
 
 def main() -> None:
@@ -85,7 +84,9 @@ def main() -> None:
     args = arg_parser.parse_args()
 
     try:
-        with open(args.input, "r") as fin, open(args.output or args.input, "w") as fout:
+        with AustinFileReader(args.input) as fin, open(
+            args.output or args.input, "w"
+        ) as fout:
             compress(fin, fout, args.counts)
     except FileNotFoundError:
         print(f"No such input file: {args.input}")

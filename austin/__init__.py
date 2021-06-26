@@ -50,15 +50,18 @@ def _to_semver(version: Optional[str]) -> SemVer:
     if version is None:
         return (0, 0, 0)
 
-    return (  # type: ignore[return-value]
-        tuple(
-            int(_)
-            for _ in "".join(
-                list(takewhile(lambda _: _.isdigit() or _ == ".", version))
-            ).split(".")
-        )
-        + (0, 0, 0)
-    )[:3]
+    try:
+        return (  # type: ignore[return-value]
+            tuple(
+                int(_)
+                for _ in "".join(
+                    list(takewhile(lambda _: _.isdigit() or _ == ".", version))
+                ).split(".")
+            )
+            + (0, 0, 0)
+        )[:3]
+    except ValueError:
+        raise ValueError("Invalid semantic version")
 
 
 class AustinError(Exception):

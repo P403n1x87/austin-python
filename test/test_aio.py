@@ -108,7 +108,7 @@ def test_async_memory():
                 "100",
                 "python",
                 "-c",
-                "[i for i in range(1000000)]",
+                "[i for i in range(10000000)]",
             ]
         )
     )

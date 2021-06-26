@@ -11,6 +11,7 @@ from austin import _to_semver
         ("3", (3, 0, 0)),
         ("3.0.0a1", (3, 0, 0)),
         ("0.1.0", (0, 1, 0)),
+        ("3.9.?", (3, 9, 0)),
     ],
 )
 def test_semver(version, semver):

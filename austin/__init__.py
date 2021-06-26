@@ -55,7 +55,11 @@ def _to_semver(version: Optional[str]) -> SemVer:
             tuple(
                 int(_)
                 for _ in "".join(
-                    list(takewhile(lambda _: _.isdigit() or _ == ".", version))
+                    list(
+                        takewhile(
+                            lambda _: _.isdigit() or _ == ".", version.replace("?", "0")
+                        )
+                    )
                 ).split(".")
             )
             + (0, 0, 0)

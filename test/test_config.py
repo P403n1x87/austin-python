@@ -34,10 +34,10 @@ def test_config_empty_binary():
     assert AC().binary is None
 
 
-def test_config_binary():
-    old_home = os.environ["HOME"]
+def test_config_binary(monkeypatch):
+    home = tempfile.mkdtemp()
+    monkeypatch.setenv("HOME", home)
 
-    home = os.environ["HOME"] = tempfile.mkdtemp()
     AC.RC = os.path.join(home, ".austinrc")
     with open(AC.RC, "w") as fout:
         toml.dump({"binary": "foo"}, fout)
@@ -45,5 +45,3 @@ def test_config_binary():
     config = AC()
     config.reload()
     assert config.binary == "foo"
-
-    os.environ["HOME"] = old_home

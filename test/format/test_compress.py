@@ -22,13 +22,14 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import io
+from test import DATA_FILE
 
 from austin.format.compress import compress
 from austin.stats import AustinFileReader
 
 
 def test_compress():
-    with AustinFileReader("test/data/austin.out") as original:
+    with AustinFileReader(DATA_FILE) as original:
         compressed = io.StringIO()
         compress(original, compressed)
 
@@ -39,7 +40,7 @@ def test_compress():
 
 
 def test_compress_counts():
-    with AustinFileReader("test/data/austin.out") as original:
+    with AustinFileReader(DATA_FILE) as original:
         compressed = io.StringIO()
         compress(original, compressed, counts=True)
 

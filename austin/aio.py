@@ -139,8 +139,12 @@ class AsyncAustin(BaseAustin):
             self.check_exit(await self.proc.wait(), await self._read_stderr())
 
         except Exception:
-            self.proc.terminate()
-            await self.proc.wait()
+            try:
+                self.proc.terminate()
+                await self.proc.wait()
+            except Exception:
+                # best effort
+                pass
             raise
 
         finally:

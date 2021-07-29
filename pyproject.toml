@@ -52,7 +52,7 @@ austin2pprof = "austin.format.pprof.__main__:main"
 austin2speedscope = "austin.format.speedscope:main"
 
 [tool.poetry.dependencies]
-dataclasses = "*"
+dataclasses = {version = "*", python = "<3.7"}
 protobuf = "^3.12.2"
 psutil = ">=5.7.0"
 python = "^3.6"

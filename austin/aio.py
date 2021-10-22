@@ -106,7 +106,7 @@ class AsyncAustin(BaseAustin):
                 stderr=asyncio.subprocess.PIPE,
             )
         except FileNotFoundError:
-            raise AustinError("Austin executable not found.")
+            raise AustinError("Austin executable not found.") from None
 
         if not self.proc.stdout:
             raise AustinError("Standard output stream is unexpectedly missing")

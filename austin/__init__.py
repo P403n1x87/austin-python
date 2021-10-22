@@ -65,7 +65,7 @@ def _to_semver(version: Optional[str]) -> SemVer:
             + (0, 0, 0)
         )[:3]
     except ValueError:
-        raise ValueError("Invalid semantic version")
+        raise ValueError("Invalid semantic version") from None
 
 
 class AustinError(Exception):
@@ -121,7 +121,7 @@ class BaseAustin(ABC):
         try:
             self._sample_callback = sample_callback or self.on_sample_received  # type: ignore[attr-defined]
         except AttributeError:
-            raise AustinError("No sample callback given or implemented.")
+            raise AustinError("No sample callback given or implemented.") from None
 
         self._terminate_callback = terminate_callback or self.on_terminate
         self._ready_callback = ready_callback or self.on_ready
@@ -135,7 +135,7 @@ class BaseAustin(ABC):
         try:
             self._proc = psutil.Process(austin_pid)
         except psutil.NoSuchProcess:
-            raise AustinError("Cannot find Austin process.")
+            raise AustinError("Cannot find Austin process.") from None
 
         if not args.pid:  # Austin is forking
             try:
@@ -143,14 +143,14 @@ class BaseAustin(ABC):
                 if self._child_proc is None:
                     raise IndexError
             except IndexError:
-                raise AustinError("Cannot find Austin child process.")
+                raise AustinError("Cannot find Austin child process.") from None
         else:  # Austin is attaching
             try:
                 self._child_proc = psutil.Process(args.pid)
             except psutil.NoSuchProcess:
                 raise AustinError(
                     f"Cannot attach to process with invalid PID {args.pid}."
-                )
+                ) from None
 
         self._cmd_line = " ".join(self._child_proc.cmdline())
 
@@ -200,7 +200,7 @@ class BaseAustin(ABC):
             if wait:
                 self._proc.wait()
         except psutil.NoSuchProcess:
-            raise AustinError("Austin has already terminated")
+            raise AustinError("Austin has already terminated") from None
 
         self._running = False
         self._proc = None

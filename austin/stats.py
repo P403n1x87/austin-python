@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
 import re
+from threading import Lock
 from typing import Any, Dict, Generator, Iterator, List, Optional, TextIO, Type, Union
 
 from austin import AustinError
@@ -151,7 +152,7 @@ class Metric:
             return [Metric(metric_type, ms[0])]
 
         except ValueError:
-            raise InvalidSample(metrics)
+            raise InvalidSample(metrics) from None
 
     def __str__(self) -> str:
         """Stringify the metric."""
@@ -184,7 +185,7 @@ class Frame:
         try:
             module, function, line = frame.rsplit(":", maxsplit=3)
         except ValueError:
-            raise InvalidFrame(frame)
+            raise InvalidFrame(frame) from None
         return Frame(function, module, int(line))
 
     def __str__(self) -> str:
@@ -235,7 +236,7 @@ class Sample:
         try:
             pid = int(process[1:])
         except ValueError:
-            raise InvalidSample(f"Invalid process ID in sample '{sample}'")
+            raise InvalidSample(f"Invalid process ID in sample '{sample}'") from None
 
         if rest[0] != "T":
             raise InvalidSample(f"No thread ID in sample '{sample}'")
@@ -443,18 +444,20 @@ class AustinStats:
 
     stats_type: AustinStatsType
     processes: Dict[ProcessId, ProcessStats] = field(default_factory=dict)
+    _lock: Lock = field(default_factory=Lock, compare=False)
 
     def dump(self, stream: TextIO) -> None:
         """Dump the statistics to the given text stream."""
-        stream.write(f"# mode: {self.stats_type.value.partition('_')[0]}\n\n")
-        for _, process in self.processes.items():
-            samples = process.collapse()
+        with self._lock:
+            stream.write(f"# mode: {self.stats_type.value.partition('_')[0]}\n\n")
+            for _, process in self.processes.items():
+                samples = process.collapse()
 
-            if all(sample.endswith(" 0 0") for sample in samples):
-                samples = [sample[:-4] for sample in samples]
+                if all(sample.endswith(" 0 0") for sample in samples):
+                    samples = [sample[:-4] for sample in samples]
 
-            for sample in samples:
-                stream.write(sample + "\n")
+                for sample in samples:
+                    stream.write(sample + "\n")
 
     def get_process(self, pid: ProcessId) -> ProcessStats:
         """Get process statistics for the given PID."""
@@ -547,13 +550,14 @@ class AustinStats:
             container = stats.children
         stats.own = stats.total.copy()
 
-        if pid not in self.processes:
-            self.processes[pid] = ProcessStats(pid, {sample.thread: thread_stats})
-            return
+        with self._lock:
+            if pid not in self.processes:
+                self.processes[pid] = ProcessStats(pid, {sample.thread: thread_stats})
+                return
 
-        process = self.processes[pid]
-        if sample.thread not in process.threads:
-            process.threads[sample.thread] = thread_stats
-            return
+            process = self.processes[pid]
+            if sample.thread not in process.threads:
+                process.threads[sample.thread] = thread_stats
+                return
 
-        process.threads[sample.thread] << thread_stats
+            process.threads[sample.thread] << thread_stats

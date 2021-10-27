@@ -21,6 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from copy import deepcopy
 import io
 
 from austin.stats import AustinStats
@@ -258,3 +259,14 @@ def test_load():
             )
         },
     )
+
+
+def test_deepcopy():
+    stats = AustinStats(stats_type=AustinStatsType.WALL)
+
+    stats.update(
+        Sample.parse("P42;T0x7f45645646;foo_module.py:foo:10 152", MetricType.TIME)[0]
+    )
+    cloned_stats = deepcopy(stats)
+    assert cloned_stats == stats
+    assert cloned_stats is not stats

@@ -21,6 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from copy import deepcopy
 import dataclasses
 from dataclasses import dataclass
 from dataclasses import field
@@ -445,6 +446,16 @@ class AustinStats:
     stats_type: AustinStatsType
     processes: Dict[ProcessId, ProcessStats] = field(default_factory=dict)
     _lock: Lock = field(default_factory=Lock, compare=False)
+
+    def __deepcopy__(self, memo: Optional[Dict[Any, Any]] = None) -> "AustinStats":
+        """Make a deep copy of this AustinStats object."""
+        state = dict(self.__dict__)
+        del state["_lock"]
+
+        copy = type(self)(self.stats_type)
+        copy.__dict__.update(deepcopy(state))
+
+        return copy
 
     def dump(self, stream: TextIO) -> None:
         """Dump the statistics to the given text stream."""

@@ -43,7 +43,7 @@ ProfileName = str
 class Units(Enum):
     """Metric units."""
 
-    MICROSECONDS = "μs"
+    MICROSECONDS = "microseconds"
     BYTES = "bytes"
 
 

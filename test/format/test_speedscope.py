@@ -233,9 +233,6 @@ def test_speedscope_wall_metrics_only():
     assert speedscope_data["name"] == "austin_wall_metrics"
     assert "Austin2Speedscope Converter" in speedscope_data["exporter"]
 
-    sprofile_list = speedscope_data["profiles"]
-    assert len(sprofile_list) == 2
-
     # Generate via:
     #
     # cat "${FILENAME}" | cut -d ' ' -f 1 | tr ';' '\n' | grep -v "P82848" | \
@@ -317,6 +314,13 @@ def test_speedscope_wall_metrics_only():
         assert sframe in sframe_set
         sframe_from_list_asdict = sframe_list[sframe_to_index_map[sframe]]
         assert asdict(sframe) == sframe_from_list_asdict
+
+    sprofile_list = speedscope_data["profiles"]
+    assert len(sprofile_list) == 2
+    for sprofile in sprofile_list:
+        for field in _SPEEDSCOPE_PROFILE_FIELDS:
+            assert field in sprofile
+        assert sprofile["type"] == "sampled"
 
 
     assert sprofile_list[0]["name"] == "Wall time profile for 82848:82848"

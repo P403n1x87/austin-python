@@ -243,8 +243,75 @@ def test_speedscope_wall_metrics_only():
     # cat "${FILENAME}" | cut -d ' ' -f 1 | tr ';' '\n' | grep -v "P82848" | \
     #    grep -v "T82848" | grep -v "T82858" | grep -v '#' | grep "\S" | \
     #    sort | uniq | wc -l
-    frame_list = speedscope_data["shared"]["frames"]
-    assert len(frame_list) == 11
+    sframe_list = speedscope_data["shared"]["frames"]
+    assert len(sframe_list) == 11
+
+    # cat "${FILENAME}" | cut -d ' ' -f 1 | tr ';' '\n' | grep -v "P82848" | \
+    #    grep -v "T82848" | grep -v "T82858" | grep -v '#' | grep "\S" | \
+    #    sort | uniq
+    sframe_set = {
+        SpeedscopeFrame(sframe["name"], sframe["file"], sframe["line"])
+        for sframe in sframe_list
+    }
+    unique_sframe_tuple = (
+        SpeedscopeFrame(
+            "<module>",
+            "/home/gabriele/Projects/austin/test/target34.py",
+            37
+        ),
+        SpeedscopeFrame(
+            "<module>",
+            "/home/gabriele/Projects/austin/test/target34.py",
+            38
+        ),
+        SpeedscopeFrame(
+            "keep_cpu_busy",
+            "/home/gabriele/Projects/austin/test/target34.py",
+            30
+        ),
+        SpeedscopeFrame(
+            "keep_cpu_busy",
+            "/home/gabriele/Projects/austin/test/target34.py",
+            31
+        ),
+        SpeedscopeFrame(
+            "keep_cpu_busy",
+            "/home/gabriele/Projects/austin/test/target34.py",
+            32
+        ),
+        SpeedscopeFrame(
+            "_bootstrap",
+            "/usr/lib/python3.8/threading.py",
+            890
+        ),
+        SpeedscopeFrame(
+            "_bootstrap_inner",
+            "/usr/lib/python3.8/threading.py",
+            932
+        ),
+        SpeedscopeFrame(
+            "run",
+            "/usr/lib/python3.8/threading.py",
+            870
+        ),
+        SpeedscopeFrame(
+            "start",
+            "/usr/lib/python3.8/threading.py",
+            857
+        ),
+        SpeedscopeFrame(
+            "wait",
+            "/usr/lib/python3.8/threading.py",
+            302
+        ),
+        SpeedscopeFrame(
+            "wait",
+            "/usr/lib/python3.8/threading.py",
+            558
+        ),
+    )
+    for sframe in unique_sframe_tuple:
+        assert sframe in sframe_set
 
     # cat "${FILENAME}" | grep "T82848" | wc -l
     # cat "${FILENAME}" | grep "T82858" | wc -l

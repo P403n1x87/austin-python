@@ -22,7 +22,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from dataclasses import fields
 
-from austin.format.speedscope import Speedscope, SpeedscopeFrame, SpeedscopeProfile
+from test import DATA_FILE
+
+from austin.format import Mode
+from austin.format.speedscope import Speedscope
+from austin.format.speedscope import SpeedscopeFrame
+from austin.format.speedscope import SpeedscopeProfile
+from austin.stats import AustinFileReader
+from austin.stats import InvalidSample
+from austin.stats import MetricType
 from austin.stats import Sample
 
 _SPEEDSCOPE_FILE_FIELDS = ("$schema", "shared", "profiles", "name", "exporter")
@@ -201,3 +209,25 @@ def test_speedscope_full_metrics():
     assert sprofile_list[3]["samples"] == [[0]]
     assert len(sprofile_list[3]["weights"]) == 1
     assert sprofile_list[3]["weights"] == [20]
+
+
+def test_speedscope_wall_metrics_only():
+    with AustinFileReader(DATA_FILE) as austin:
+        mode = austin.metadata["mode"]
+        assert Mode.from_metadata(mode) == Mode.WALL
+
+        speedscope = Speedscope("austin_wall_metrics", mode)
+
+        for line in austin:
+            try:
+                speedscope.add_samples(Sample.parse(line, MetricType.from_mode(mode)))
+            except InvalidSample:
+                continue
+
+    speedscope_data = speedscope.asdict()
+    for file_field in _SPEEDSCOPE_FILE_FIELDS:
+        assert file_field in speedscope_data
+
+    assert speedscope_data["$schema"] == _SPEEDSCOPE_SCHEMA_URL
+    assert speedscope_data["name"] == "austin_wall_metrics"
+    assert "Austin2Speedscope Converter" in speedscope_data["exporter"]

@@ -238,8 +238,45 @@ def test_speedscope_wall_metrics_only():
     assert sprofile_list[0]["name"] == "Wall time profile for 82848:82848"
     assert sprofile_list[1]["name"] == "Wall time profile for 82848:82858"
 
+    # Generate via:
+    #
+    # cat "${FILENAME}" | grep -Hn "T82848" | wc -l
+    # cat "${FILENAME}" | grep -Hn "T82858" | wc -l
     assert len(sprofile_list[0]["samples"]) == 37
     assert len(sprofile_list[1]["samples"]) == 35
 
     assert len(sprofile_list[0]["weights"]) == 37
     assert len(sprofile_list[1]["weights"]) == 35
+
+    # cat "${FILENAME}" | grep -Hn "T82848" | cut -d ' ' -f 3
+    # cat "${FILENAME}" | grep -Hn "T82858" | cut -d ' ' -f 3
+    #
+    # To subdivide and ease data entry, also pipe through "head -n" and
+    # "tail -n", e.g., to get entries 0-4:
+    #
+    # cat "${FILENAME}" | grep -Hn "T82848" | cut -d ' ' -f 3 | head -n 5
+    #
+    # To get entries 5-9:
+    #
+    # cat "${FILENAME}" | grep -Hn "T82848" | cut -d ' ' -f 3 | \
+    #    head -n 10 | tail -n 5
+    #
+    assert sprofile_list[0]["weights"] == [
+        10058, 10083, 10088, 10088, 10087,
+        10060, 10085, 10082, 10020, 10090,
+        10057, 10058, 10087, 10087, 10083,
+        10060, 10057, 10083, 10094, 10058,
+        10058, 10057, 10081, 10087, 10087,
+        10087, 10081, 10088, 10084, 10089,
+        10089, 10084, 10088, 10090, 10091,
+        10058, 10092,
+    ]
+    assert sprofile_list[1]["weights"] == [
+        10058, 10083, 10088, 10088, 10087,
+        10060, 10085, 10082, 10020, 10090,
+        10057, 10058, 10087, 10087, 10083,
+        10060, 10057, 10083, 10094, 10058,
+        10058, 10057, 10081, 10087, 10087,
+        10087, 10081, 10088, 10084, 10089,
+        10089, 10084, 10088, 10090, 10091,
+    ]

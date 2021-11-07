@@ -231,3 +231,6 @@ def test_speedscope_wall_metrics_only():
     assert speedscope_data["$schema"] == _SPEEDSCOPE_SCHEMA_URL
     assert speedscope_data["name"] == "austin_wall_metrics"
     assert "Austin2Speedscope Converter" in speedscope_data["exporter"]
+
+    sprofile_list = speedscope_data["profiles"]
+    assert len(sprofile_list) == 2

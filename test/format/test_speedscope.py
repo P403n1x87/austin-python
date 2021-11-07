@@ -238,5 +238,8 @@ def test_speedscope_wall_metrics_only():
     assert sprofile_list[0]["name"] == "Wall time profile for 82848:82848"
     assert sprofile_list[1]["name"] == "Wall time profile for 82848:82858"
 
+    assert len(sprofile_list[0]["samples"]) == 37
+    assert len(sprofile_list[1]["samples"]) == 35
+
     assert len(sprofile_list[0]["weights"]) == 37
     assert len(sprofile_list[1]["weights"]) == 35

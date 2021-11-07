@@ -162,7 +162,7 @@ class Speedscope:
         }
 
     def dump(self, stream: TextIO) -> None:
-        """Dump the pprof protobuf message to the given binary stream."""
+        """Dump the JSON to a text stream."""
         json.dump(
             self.asdict(),
             stream,

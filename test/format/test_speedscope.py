@@ -20,6 +20,7 @@
 # GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
+from dataclasses import asdict
 from dataclasses import fields
 
 from test import DATA_FILE
@@ -311,6 +312,9 @@ def test_speedscope_wall_metrics_only():
     }
     for sframe in sframe_to_index_map.keys():
         assert sframe in sframe_set
+        sframe_from_list_asdict = sframe_list[sframe_to_index_map[sframe]]
+        assert asdict(sframe) == sframe_from_list_asdict
+
 
     assert sprofile_list[0]["name"] == "Wall time profile for 82848:82848"
     assert sprofile_list[1]["name"] == "Wall time profile for 82848:82858"

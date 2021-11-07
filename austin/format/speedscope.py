@@ -134,7 +134,7 @@ class Speedscope:
         if self.mode == Mode.CPU:
             _ = zip(("cpu",), samples)
         elif self.mode == Mode.WALL:
-            _ = zip(("cpu",), samples)
+            _ = zip(("wall",), samples)
         elif self.mode == Mode.MEMORY:
             _ = zip(("m+", "m-"), samples)
         elif self.mode == Mode.FULL:

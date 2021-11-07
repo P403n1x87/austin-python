@@ -243,6 +243,9 @@ def test_speedscope_wall_metrics_only():
     #    sort | uniq | wc -l
     sframe_list = speedscope_data["shared"]["frames"]
     assert len(sframe_list) == 11
+    for sframe in sframe_list:
+        for field in _SPEEDSCOPE_FRAME_FIELDS:
+            assert field in sframe
 
     # cat "${FILENAME}" | cut -d ' ' -f 1 | tr ';' '\n' | grep -v "P82848" | \
     #    grep -v "T82848" | grep -v "T82858" | grep -v '#' | grep "\S" | \

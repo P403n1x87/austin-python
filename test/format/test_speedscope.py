@@ -22,6 +22,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from dataclasses import asdict
 from dataclasses import fields
+import io
+from os.path import dirname
+from os.path import join
 
 from test import DATA_FILE
 
@@ -217,7 +220,7 @@ def test_speedscope_wall_metrics_only():
         mode = austin.metadata["mode"]
         assert Mode.from_metadata(mode) == Mode.WALL
 
-        speedscope = Speedscope("austin_wall_metrics", mode)
+        speedscope = Speedscope("austin.out", mode)
 
         for line in austin:
             try:
@@ -225,12 +228,18 @@ def test_speedscope_wall_metrics_only():
             except InvalidSample:
                 continue
 
+        text_stream = io.StringIO()
+        speedscope.dump(text_stream)
+
+        with open(join(dirname(DATA_FILE), "austin.json"), "r") as sprof:
+            assert text_stream.getvalue() == sprof.read()
+
     speedscope_data = speedscope.asdict()
     for file_field in _SPEEDSCOPE_FILE_FIELDS:
         assert file_field in speedscope_data
 
     assert speedscope_data["$schema"] == _SPEEDSCOPE_SCHEMA_URL
-    assert speedscope_data["name"] == "austin_wall_metrics"
+    assert speedscope_data["name"] == "austin.out"
     assert "Austin2Speedscope Converter" in speedscope_data["exporter"]
 
     # Generate via:

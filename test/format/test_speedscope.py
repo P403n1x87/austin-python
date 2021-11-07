@@ -235,9 +235,6 @@ def test_speedscope_wall_metrics_only():
     sprofile_list = speedscope_data["profiles"]
     assert len(sprofile_list) == 2
 
-    assert sprofile_list[0]["name"] == "Wall time profile for 82848:82848"
-    assert sprofile_list[1]["name"] == "Wall time profile for 82848:82858"
-
     # Generate via:
     #
     # cat "${FILENAME}" | cut -d ' ' -f 1 | tr ';' '\n' | grep -v "P82848" | \
@@ -249,69 +246,74 @@ def test_speedscope_wall_metrics_only():
     # cat "${FILENAME}" | cut -d ' ' -f 1 | tr ';' '\n' | grep -v "P82848" | \
     #    grep -v "T82848" | grep -v "T82858" | grep -v '#' | grep "\S" | \
     #    sort | uniq
+    #
+    # Omit the "| sort | uniq" part to get ordering
     sframe_set = {
         SpeedscopeFrame(sframe["name"], sframe["file"], sframe["line"])
         for sframe in sframe_list
     }
-    unique_sframe_tuple = (
+    sframe_to_index_map = {
         SpeedscopeFrame(
             "<module>",
             "/home/gabriele/Projects/austin/test/target34.py",
             37
-        ),
+        ): 4,
         SpeedscopeFrame(
             "<module>",
             "/home/gabriele/Projects/austin/test/target34.py",
             38
-        ),
+        ): 8,
         SpeedscopeFrame(
             "keep_cpu_busy",
             "/home/gabriele/Projects/austin/test/target34.py",
             30
-        ),
+        ): 10,
         SpeedscopeFrame(
             "keep_cpu_busy",
             "/home/gabriele/Projects/austin/test/target34.py",
             31
-        ),
+        ): 9,
         SpeedscopeFrame(
             "keep_cpu_busy",
             "/home/gabriele/Projects/austin/test/target34.py",
             32
-        ),
+        ): 3,
         SpeedscopeFrame(
             "_bootstrap",
             "/usr/lib/python3.8/threading.py",
             890
-        ),
+        ): 0,
         SpeedscopeFrame(
             "_bootstrap_inner",
             "/usr/lib/python3.8/threading.py",
             932
-        ),
+        ): 1,
         SpeedscopeFrame(
             "run",
             "/usr/lib/python3.8/threading.py",
             870
-        ),
+        ): 2,
         SpeedscopeFrame(
             "start",
             "/usr/lib/python3.8/threading.py",
             857
-        ),
+        ): 5,
         SpeedscopeFrame(
             "wait",
             "/usr/lib/python3.8/threading.py",
             302
-        ),
+        ): 7,
         SpeedscopeFrame(
             "wait",
             "/usr/lib/python3.8/threading.py",
             558
-        ),
-    )
-    for sframe in unique_sframe_tuple:
+        ): 6,
+    }
+    for sframe in sframe_to_index_map.keys():
         assert sframe in sframe_set
+
+    assert sprofile_list[0]["name"] == "Wall time profile for 82848:82848"
+    assert sprofile_list[1]["name"] == "Wall time profile for 82848:82858"
 
     # cat "${FILENAME}" | grep "T82848" | wc -l
     # cat "${FILENAME}" | grep "T82858" | wc -l

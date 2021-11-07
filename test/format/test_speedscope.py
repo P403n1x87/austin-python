@@ -240,25 +240,31 @@ def test_speedscope_wall_metrics_only():
 
     # Generate via:
     #
-    # cat "${FILENAME}" | grep -Hn "T82848" | wc -l
-    # cat "${FILENAME}" | grep -Hn "T82858" | wc -l
+    # cat "${FILENAME}" | cut -d ' ' -f 1 | tr ';' '\n' | grep -v "P82848" | \
+    #    grep -v "T82848" | grep -v "T82858" | grep -v '#' | grep "\S" | \
+    #    sort | uniq | wc -l
+    frame_list = speedscope_data["shared"]["frames"]
+    assert len(frame_list) == 11
+
+    # cat "${FILENAME}" | grep "T82848" | wc -l
+    # cat "${FILENAME}" | grep "T82858" | wc -l
     assert len(sprofile_list[0]["samples"]) == 37
     assert len(sprofile_list[1]["samples"]) == 35
 
     assert len(sprofile_list[0]["weights"]) == 37
     assert len(sprofile_list[1]["weights"]) == 35
 
-    # cat "${FILENAME}" | grep -Hn "T82848" | cut -d ' ' -f 3
-    # cat "${FILENAME}" | grep -Hn "T82858" | cut -d ' ' -f 3
+    # cat "${FILENAME}" | grep "T82848" | cut -d ' ' -f 2
+    # cat "${FILENAME}" | grep "T82858" | cut -d ' ' -f 2
     #
     # To subdivide and ease data entry, also pipe through "head -n" and
     # "tail -n", e.g., to get entries 0-4:
     #
-    # cat "${FILENAME}" | grep -Hn "T82848" | cut -d ' ' -f 3 | head -n 5
+    # cat "${FILENAME}" | grep "T82848" | cut -d ' ' -f 2 | head -n 5
     #
     # To get entries 5-9:
     #
-    # cat "${FILENAME}" | grep -Hn "T82848" | cut -d ' ' -f 3 | \
+    # cat "${FILENAME}" | grep "T82848" | cut -d ' ' -f 2 | \
     #    head -n 10 | tail -n 5
     #
     assert sprofile_list[0]["weights"] == [

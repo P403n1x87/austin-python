@@ -321,7 +321,7 @@ def test_speedscope_wall_metrics_only():
         for field in _SPEEDSCOPE_PROFILE_FIELDS:
             assert field in sprofile
         assert sprofile["type"] == "sampled"
-
+        assert sprofile["startValue"] == 0
 
     assert sprofile_list[0]["name"] == "Wall time profile for 82848:82848"
     assert sprofile_list[1]["name"] == "Wall time profile for 82848:82858"

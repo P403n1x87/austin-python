@@ -43,7 +43,7 @@ ProfileName = str
 class Units(Enum):
     """Metric units."""
 
-    MICROSECONDS = "μs"
+    MICROSECONDS = "microseconds"
     BYTES = "bytes"
 
 
@@ -134,7 +134,7 @@ class Speedscope:
         if self.mode == Mode.CPU:
             _ = zip(("cpu",), samples)
         elif self.mode == Mode.WALL:
-            _ = zip(("cpu",), samples)
+            _ = zip(("wall",), samples)
         elif self.mode == Mode.MEMORY:
             _ = zip(("m+", "m-"), samples)
         elif self.mode == Mode.FULL:
@@ -162,7 +162,7 @@ class Speedscope:
         }
 
     def dump(self, stream: TextIO) -> None:
-        """Dump the pprof protobuf message to the given binary stream."""
+        """Dump the JSON to a text stream."""
         json.dump(
             self.asdict(),
             stream,

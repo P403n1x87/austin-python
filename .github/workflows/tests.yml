@@ -69,6 +69,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/main
           export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
+          export PYTHON="${{ matrix.python-version }}"
           nox
         if: "startsWith(matrix.os, 'ubuntu')"
 
@@ -84,6 +85,7 @@ jobs:
         run: |
           cd $env:GITHUB_WORKSPACE/main
           $env:PATH="$env:GITHUB_WORKSPACE\austin\src;$env:PATH"
+          $env:PYTHON="${{ matrix.python-version }}"
           nox
         if: "startsWith(matrix.os, 'windows')"
 

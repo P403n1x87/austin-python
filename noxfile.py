@@ -1,3 +1,5 @@
+import os
+import sys
 import tempfile
 
 import nox
@@ -7,10 +9,19 @@ nox.options.sessions = "lint", "tests"
 
 # ---- Configuration ----
 
+SUPPORTED_PYTHON_VERSIONS = [
+    "3.6",
+    "3.7",
+    "3.8",
+    "3.9",
+    "3.10",
+]
+REQUESTED_PYTHON_VERSION = os.getenv("PYTHON") or SUPPORTED_PYTHON_VERSIONS
 
-SUPPORTED_PYTHON_VERSIONS = ["3.6", "3.7", "3.8", "3.9", "3.10"]
-
-PYTEST_OPTIONS = ["-vvvs", "--cov=austin", "--cov-report", "term-missing"]
+if sys.platform == "win32":
+    PYTEST_OPTIONS = ["-vvvs"]
+else:
+    PYTEST_OPTIONS = ["-vvvs", "--cov=austin", "--cov-report", "term-missing"]
 
 LINT_LOCATIONS = ["austin", "test", "noxfile.py"]
 LINT_EXCLUDES = ["austin/format/pprof/profile_pb2.py"]
@@ -39,13 +50,13 @@ def install_with_constraints(session, *args, **kwargs):
 # ---- Sessions ----
 
 
-@nox.session(python=SUPPORTED_PYTHON_VERSIONS)
+@nox.session(python=REQUESTED_PYTHON_VERSION)
 def tests(session):
     session.run("poetry", "install", "-vv", external=True)
     session.run("poetry", "run", "python", "-m", "pytest", *PYTEST_OPTIONS)
 
 
-@nox.session(python=SUPPORTED_PYTHON_VERSIONS)
+@nox.session(python=REQUESTED_PYTHON_VERSION)
 def lint(session):
     session.install(
         "flake8",
@@ -58,7 +69,7 @@ def lint(session):
     session.run("flake8", *LINT_LOCATIONS, "--exclude", *LINT_EXCLUDES)
 
 
-@nox.session(python=SUPPORTED_PYTHON_VERSIONS)
+@nox.session(python=REQUESTED_PYTHON_VERSION)
 def mypy(session):
     session.install("mypy")
     session.run(

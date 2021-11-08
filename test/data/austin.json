@@ -1,1 +1,517 @@
-{"$schema": "https://www.speedscope.app/file-format-schema.json", "shared": {"frames": [{"name": "_bootstrap", "file": "/usr/lib/python3.8/threading.py", "line": 890}, {"name": "_bootstrap_inner", "file": "/usr/lib/python3.8/threading.py", "line": 932}, {"name": "run", "file": "/usr/lib/python3.8/threading.py", "line": 870}, {"name": "keep_cpu_busy", "file": "/home/gabriele/Projects/austin/test/target34.py", "line": 32}, {"name": "<module>", "file": "/home/gabriele/Projects/austin/test/target34.py", "line": 37}, {"name": "start", "file": "/usr/lib/python3.8/threading.py", "line": 857}, {"name": "wait", "file": "/usr/lib/python3.8/threading.py", "line": 558}, {"name": "wait", "file": "/usr/lib/python3.8/threading.py", "line": 302}, {"name": "<module>", "file": "/home/gabriele/Projects/austin/test/target34.py", "line": 38}, {"name": "keep_cpu_busy", "file": "/home/gabriele/Projects/austin/test/target34.py", "line": 31}, {"name": "keep_cpu_busy", "file": "/home/gabriele/Projects/austin/test/target34.py", "line": 30}]}, "profiles": [{"name": "Wall time profile for 82848:82848", "unit": "microseconds", "startValue": 0, "endValue": 372856, "samples": [[4, 5, 6, 7], [8, 3], [8, 9], [8, 3], [8, 9], [8, 3], [8, 10], [8, 3], [8, 3], [8, 9], [8, 10], [8, 9], [8, 3], [8, 9], [8, 3], [8, 10], [8, 3], [8, 9], [8, 3], [8, 3], [8, 3], [8, 3], [8, 9], [8, 3], [8, 9], [8, 3], [8, 9], [8, 3], [8, 9], [8, 9], [8, 9], [8, 9], [8, 3], [8, 3], [8, 3], [8, 3], [8]], "weights": [10058, 10083, 10088, 10088, 10087, 10060, 10085, 10082, 10020, 10090, 10057, 10058, 10087, 10087, 10083, 10060, 10057, 10083, 10094, 10058, 10058, 10057, 10081, 10087, 10087, 10087, 10081, 10088, 10084, 10089, 10089, 10084, 10088, 10090, 10091, 10058, 10092], "type": "sampled"}, {"name": "Wall time profile for 82848:82858", "unit": "microseconds", "startValue": 0, "endValue": 352706, "samples": [[0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 9], [0, 1, 2, 9], [0, 1, 2, 9], [0, 1, 2, 9], [0, 1, 2, 3], [0, 1, 2, 9], [0, 1, 2, 3], [0, 1, 2, 9], [0, 1, 2, 9], [0, 1, 2, 9], [0, 1, 2, 9], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 9], [0, 1, 2, 10], [0, 1, 2, 9], [0, 1, 2, 9], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 9], [0, 1, 2, 9], [0, 1, 2, 3], [0, 1, 2, 9], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 9], [0, 1, 2, 10], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2, 3], [0, 1, 2], [0, 1, 2]], "weights": [10058, 10083, 10088, 10088, 10087, 10060, 10085, 10082, 10020, 10090, 10057, 10058, 10087, 10087, 10083, 10060, 10057, 10083, 10094, 10058, 10058, 10057, 10081, 10087, 10087, 10087, 10081, 10088, 10084, 10089, 10089, 10084, 10088, 10090, 10091], "type": "sampled"}], "name": "austin.out", "exporter": "Austin2Speedscope Converter 0.2.0"}
+{
+  "$schema": "https://www.speedscope.app/file-format-schema.json",
+  "shared": {
+    "frames": [
+      {
+        "name": "_bootstrap",
+        "file": "/usr/lib/python3.8/threading.py",
+        "line": 890
+      },
+      {
+        "name": "_bootstrap_inner",
+        "file": "/usr/lib/python3.8/threading.py",
+        "line": 932
+      },
+      {
+        "name": "run",
+        "file": "/usr/lib/python3.8/threading.py",
+        "line": 870
+      },
+      {
+        "name": "keep_cpu_busy",
+        "file": "/home/gabriele/Projects/austin/test/target34.py",
+        "line": 32
+      },
+      {
+        "name": "<module>",
+        "file": "/home/gabriele/Projects/austin/test/target34.py",
+        "line": 37
+      },
+      {
+        "name": "start",
+        "file": "/usr/lib/python3.8/threading.py",
+        "line": 857
+      },
+      {
+        "name": "wait",
+        "file": "/usr/lib/python3.8/threading.py",
+        "line": 558
+      },
+      {
+        "name": "wait",
+        "file": "/usr/lib/python3.8/threading.py",
+        "line": 302
+      },
+      {
+        "name": "<module>",
+        "file": "/home/gabriele/Projects/austin/test/target34.py",
+        "line": 38
+      },
+      {
+        "name": "keep_cpu_busy",
+        "file": "/home/gabriele/Projects/austin/test/target34.py",
+        "line": 31
+      },
+      {
+        "name": "keep_cpu_busy",
+        "file": "/home/gabriele/Projects/austin/test/target34.py",
+        "line": 30
+      }
+    ]
+  },
+  "profiles": [
+    {
+      "name": "Wall time profile for 82848:82848",
+      "unit": "microseconds",
+      "startValue": 0,
+      "endValue": 372856,
+      "samples": [
+        [
+          4,
+          5,
+          6,
+          7
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          10
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          9
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          8
+        ]
+      ],
+      "weights": [
+        10058,
+        10083,
+        10088,
+        10088,
+        10087,
+        10060,
+        10085,
+        10082,
+        10020,
+        10090,
+        10057,
+        10058,
+        10087,
+        10087,
+        10083,
+        10060,
+        10057,
+        10083,
+        10094,
+        10058,
+        10058,
+        10057,
+        10081,
+        10087,
+        10087,
+        10087,
+        10081,
+        10088,
+        10084,
+        10089,
+        10089,
+        10084,
+        10088,
+        10090,
+        10091,
+        10058,
+        10092
+      ],
+      "type": "sampled"
+    },
+    {
+      "name": "Wall time profile for 82848:82858",
+      "unit": "microseconds",
+      "startValue": 0,
+      "endValue": 352706,
+      "samples": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          10
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          9
+        ],
+        [
+          0,
+          1,
+          2,
+          10
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          0,
+          1,
+          2
+        ],
+        [
+          0,
+          1,
+          2
+        ]
+      ],
+      "weights": [
+        10058,
+        10083,
+        10088,
+        10088,
+        10087,
+        10060,
+        10085,
+        10082,
+        10020,
+        10090,
+        10057,
+        10058,
+        10087,
+        10087,
+        10083,
+        10060,
+        10057,
+        10083,
+        10094,
+        10058,
+        10058,
+        10057,
+        10081,
+        10087,
+        10087,
+        10087,
+        10081,
+        10088,
+        10084,
+        10089,
+        10089,
+        10084,
+        10088,
+        10090,
+        10091
+      ],
+      "type": "sampled"
+    }
+  ],
+  "name": "austin.out",
+  "exporter": "Austin2Speedscope Converter 0.2.0"
+}

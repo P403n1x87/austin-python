@@ -23,6 +23,7 @@
 from dataclasses import asdict
 from dataclasses import fields
 import io
+import json
 from os.path import dirname
 from os.path import join
 
@@ -232,4 +233,4 @@ def test_speedscope_wall_metrics_only():
         speedscope.dump(text_stream)
 
         with open(join(dirname(DATA_FILE), "austin.json"), "r") as sprof:
-            assert text_stream.getvalue() == sprof.read()
+            assert text_stream.getvalue() == json.dumps(json.load(sprof))

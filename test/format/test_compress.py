@@ -22,25 +22,24 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import io
-from test import DATA_FILE
 
 from austin.format.compress import compress
 from austin.stats import AustinFileReader
 
 
-def test_compress():
-    with AustinFileReader(DATA_FILE) as original:
+def test_compress(datapath):
+    with AustinFileReader(datapath / "austin.out") as original:
         compressed = io.StringIO()
         compress(original, compressed)
 
-        with open("test/data/austin.out") as original:
+        with open(datapath / "austin.out") as original:
             compressed_value = compressed.getvalue()
             assert compressed_value
             assert len(compressed_value.splitlines()) < len(original.readlines())
 
 
-def test_compress_counts():
-    with AustinFileReader(DATA_FILE) as original:
+def test_compress_counts(datapath):
+    with AustinFileReader(datapath / "austin.out") as original:
         compressed = io.StringIO()
         compress(original, compressed, counts=True)
 

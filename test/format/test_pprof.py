@@ -22,8 +22,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import io
-from os.path import join
-from test import DATA_FILE
 
 from austin.format.pprof import PProf
 from austin.stats import AustinFileReader
@@ -32,8 +30,8 @@ from austin.stats import MetricType
 from austin.stats import Sample
 
 
-def test_pprof():
-    with AustinFileReader(DATA_FILE) as austin:
+def test_pprof(datapath):
+    with AustinFileReader(datapath / "austin.out") as austin:
         mode = austin.metadata["mode"]
         prof = PProf(mode)
 
@@ -46,5 +44,5 @@ def test_pprof():
         bstream = io.BytesIO()
         prof.dump(bstream)
 
-        with open(join("test", "data", "austin.pprof"), "rb") as pprof:
+        with open(datapath / "austin.pprof", "rb") as pprof:
             assert pprof.read() == bstream.getvalue()

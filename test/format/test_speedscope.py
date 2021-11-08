@@ -20,13 +20,8 @@
 # GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from dataclasses import asdict
 from dataclasses import fields
 import io
-from os.path import dirname
-from os.path import join
-
-from test import DATA_FILE
 
 from austin.format import Mode
 from austin.format.speedscope import Speedscope
@@ -41,6 +36,7 @@ _SPEEDSCOPE_FILE_FIELDS = ("$schema", "shared", "profiles", "name", "exporter")
 _SPEEDSCOPE_SCHEMA_URL = "https://www.speedscope.app/file-format-schema.json"
 _SPEEDSCOPE_FRAME_FIELDS = tuple([field.name for field in fields(SpeedscopeFrame)])
 _SPEEDSCOPE_PROFILE_FIELDS = tuple([field.name for field in fields(SpeedscopeProfile)])
+
 
 def test_speedscope_full_metrics_idle():
     speedscope = Speedscope("austin_full_metrics", "full")
@@ -215,8 +211,8 @@ def test_speedscope_full_metrics():
     assert sprofile_list[3]["weights"] == [20]
 
 
-def test_speedscope_wall_metrics_only():
-    with AustinFileReader(DATA_FILE) as austin:
+def test_speedscope_wall_metrics_only(datapath):
+    with AustinFileReader(datapath / "austin.out") as austin:
         mode = austin.metadata["mode"]
         assert Mode.from_metadata(mode) == Mode.WALL
 
@@ -231,5 +227,5 @@ def test_speedscope_wall_metrics_only():
         text_stream = io.StringIO()
         speedscope.dump(text_stream)
 
-        with open(join(dirname(DATA_FILE), "austin.json"), "r") as sprof:
+        with open(datapath / "austin.json", "r") as sprof:
             assert text_stream.getvalue() == sprof.read()

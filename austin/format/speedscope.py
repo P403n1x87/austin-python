@@ -35,6 +35,8 @@ from austin.stats import InvalidSample
 from austin.stats import MetricType
 from austin.stats import Sample
 
+__version__ = "0.2.1"
+
 SpeedscopeJson = Dict
 SpeedscopeWeight = int
 ProfileName = str
@@ -158,7 +160,7 @@ class Speedscope:
                 key=lambda p: p["name"].rsplit(maxsplit=1)[-1],
             ),
             "name": self.name,
-            "exporter": "Austin2Speedscope Converter 0.2.0",
+            "exporter": f"Austin2Speedscope Converter {__version__}",
         }
 
     def dump(self, stream: TextIO) -> None:
@@ -196,7 +198,7 @@ def main() -> None:
         "--indent", type=int, help="Give a non-null value to prettify the JSON output."
     )
 
-    arg_parser.add_argument("-V", "--version", action="version", version="0.1.0")
+    arg_parser.add_argument("-V", "--version", action="version", version=__version__)
 
     args = arg_parser.parse_args()
 

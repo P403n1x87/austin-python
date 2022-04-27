@@ -16,7 +16,7 @@ SUPPORTED_PYTHON_VERSIONS = [
     "3.9",
     "3.10",
 ]
-REQUESTED_PYTHON_VERSION = os.getenv("PYTHON") or SUPPORTED_PYTHON_VERSIONS
+REQUESTED_PYTHON_VERSION = os.getenv("PYTHON") or SUPPORTED_PYTHON_VERSIONS[-1]
 
 if sys.platform == "win32":
     PYTEST_OPTIONS = ["-vvvs"]
@@ -83,7 +83,7 @@ def mypy(session):
     )
 
 
-@nox.session(python="3.8")
+@nox.session(python="3.9")
 def coverage(session):
     """Upload coverage data."""
     install_with_constraints(session, "coverage[toml]", "codecov")

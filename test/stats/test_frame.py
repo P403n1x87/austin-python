@@ -45,3 +45,9 @@ def test_frame_parser_invalid():
 
 def test_frame_str():
     assert str(Frame("foo", "foo_module", 10)) == "foo_module:foo:10"
+
+
+def test_frame_win_drive():
+    assert Frame.parse("C:\\user\\bar.py:foo:42") == Frame(
+        "foo", "C:\\user\\bar.py", 42
+    )

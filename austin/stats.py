@@ -184,7 +184,7 @@ class Frame:
             raise InvalidFrame(frame)
 
         try:
-            module, function, line = frame.rsplit(":", maxsplit=3)
+            module, function, line = frame.rsplit(":", maxsplit=2)
         except ValueError:
             raise InvalidFrame(frame) from None
         return Frame(function, module, int(line))

@@ -1,0 +1,10 @@
+# austin: 3.3.0
+# interval: 100
+# mode: wall
+# multiprocess: on
+
+P12345;T67890 21
+P12345;T67890;module1:start:1 101
+P12345;T67890;module1:start:1 135
+P12345;T67890;module1:start:1 135
+P12345;T67890;module1:start:1 132

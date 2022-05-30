@@ -22,24 +22,59 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from pstats import Stats, add_func_stats
-from austin.stats import Sample, InvalidSample
+from austin.stats import AustinFileReader, MetricType, Sample, InvalidSample
+import pathlib
+
+from typing import Any, Dict, List, Union, Tuple
+
 
 ProfileName = str
 
 
 class Pstats:
-    def __init__(self):
-        self.last_sample = 0
+    def __init__(self, austin_profile: Union[str, pathlib.Path]):
         self.last_stack = []
-        self.stats = Stats()
+        self.stats: Dict[Tuple[str, int, str], Any] = {}
+        self.callee_firstlineno: Dict[Tuple[str, str], int] = {}
+        with AustinFileReader(austin_profile) as austin:
+            assert "mode" in austin.metadata
+            metric_type = {
+                "wall": MetricType.TIME,
+                "cpu": MetricType.TIME,
+                "memory": MetricType.MEMORY,
+            }.get(austin.metadata["mode"])
+            for line in austin:
+                try:
+                    line_sample = Sample.parse(line, metric_type)
+                    for metric_sample in line_sample:
+                        if metric_sample.metric.type == MetricType.TIME:
+                            self._add_time_sample(metric_sample)
+                except InvalidSample:
+                    continue
+        self.python_stats: Stats = Stats(self)
+        self.python_stats.get_top_level_stats()
 
-    def print_stats(self):
-        self.stats.print_stats()
+    def print_stats(self, sort=-1):
+        self.python_stats.strip_dirs().sort_stats(sort).print_stats()
 
     def dump(self, f):
-        self.stats.dump_stats(f)
+        self.python_stats.dump_stats(f)
 
-    def add_sample(self, sample: Sample):
+    def create_stats(self):
+        pass
+
+    def get_stats_profile(self):
+        self.python_stats.get_stats_profile()
+
+    def resolve_callee(self, co_filename: str, curlineno: int, co_name: str) -> Tuple[str, int, str]:
+        """Normalise the callee lineno to be the first lineno, not the caller's lineno."""
+        callsite = (co_filename, co_name)
+        if callsite not in self.callee_firstlineno:
+            self.callee_firstlineno[callsite] = curlineno
+        
+        return (co_filename, self.callee_firstlineno[callsite], co_name)
+
+    def _add_time_sample(self, sample: Sample):
         # Stats.stats is a dictionary with key:
         #  (fcode.co_filename, fcode.co_firstlineno, fcode.co_name)
         # and value  (cc, ns, tt, ct, callers)
@@ -53,9 +88,7 @@ class Pstats:
         #           all subfunctions.
         #     [callers] = A dictionary indicating for each function name, the number of times
         #           it was called by us.
-        dt = sample.metrics.time - self.last_sample
-        if dt < 0:
-            dt = 0
+        dt = sample.metric.value / 1_000_000
         frames = [(frame.filename, frame.line, frame.function) for frame in sample.frames]
 
         # Find the depth in the stack that changed between the last sample
@@ -69,26 +102,21 @@ class Pstats:
                 depth = i
                 break
 
-        for i, fn in enumerate(frames):
-            if depth and i >= depth:
-                if depth == 0:
-                    caller = {}  # root-call
-                else:
-                    caller = {frames[i - 1]: 1}  # Increment call count, set frame to left (f_back) as caller
-                stat = (1, 1, dt, dt, caller)
-            else:
-                stat = (0, 0, dt, dt, {})
+        if not frames:
+            # handle empty frames
+            pass
 
-            if fn not in self.stats.stats:
-                self.stats.stats[fn] = add_func_stats((1, 1, 0, 0, {}), stat)
-            else:
-                self.stats.stats[fn] = add_func_stats(self.stats.stats[fn], stat)
+        for callee, caller in zip(frames, [{}] + [{c: 1}  for c in frames[:-1]]):
+            resolved_callee = self.resolve_callee(*callee)
+            self.stats[resolved_callee] = add_func_stats(
+                self.stats.get(resolved_callee, (1, 1, 0, 0, {})),
+                (caller and 1 or 0, caller and 1 or 0, dt, dt, caller),
+            )
 
-        self.last_sample = sample.metrics.time
         self.last_stack = frames
 
     def asdict(self):
-        return self.stats.stats
+        return self.python_stats.stats
 
 
 def main() -> None:
@@ -117,14 +145,8 @@ def main() -> None:
 
     args = arg_parser.parse_args()
 
-    stats = Pstats()
     try:
-        with open(args.input, "r") as fin:
-            for line in fin:
-                try:
-                    stats.add_sample(Sample.parse(line))
-                except InvalidSample:
-                    continue
+        stats = Pstats(args.input)
 
     except FileNotFoundError:
         print(f"No such input file: {args.input}")

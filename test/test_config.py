@@ -21,28 +21,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import io
+import os
+import os.path
+import tempfile
 
-from austin.format.pprof import PProf
-from austin.stats import AustinFileReader
-from austin.stats import InvalidSample
-from austin.stats import MetricType
-from austin.stats import Sample
+import toml
+
+from austin.config import AustinConfiguration as AC
 
 
-def test_pprof():
-    with AustinFileReader("test/data/austin.out") as austin:
-        mode = austin.metadata["mode"]
-        prof = PProf(mode)
+def test_config_empty_binary():
+    assert AC().binary is None
 
-        for line in austin:
-            try:
-                prof.add_samples(Sample.parse(line, MetricType.from_mode(mode)))
-            except InvalidSample:
-                continue
 
-        bstream = io.BytesIO()
-        prof.dump(bstream)
+def test_config_binary():
+    old_home = os.environ["HOME"]
 
-        with open("test/data/austin.pprof", "rb") as pprof:
-            assert pprof.read() == bstream.getvalue()
+    home = os.environ["HOME"] = tempfile.mkdtemp()
+    AC.RC = os.path.join(home, ".austinrc")
+    with open(AC.RC, "w") as fout:
+        toml.dump({"binary": "foo"}, fout)
+
+    config = AC()
+    config.reload()
+    assert config.binary == "foo"
+
+    os.environ["HOME"] = old_home

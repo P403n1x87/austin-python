@@ -24,7 +24,10 @@
 from argparse import ArgumentParser
 
 from austin.format.pprof import PProf
-from austin.stats import InvalidSample, Sample
+from austin.stats import AustinFileReader
+from austin.stats import InvalidSample
+from austin.stats import MetricType
+from austin.stats import Sample
 
 
 def main() -> None:
@@ -38,7 +41,9 @@ def main() -> None:
     )
 
     arg_parser.add_argument(
-        "input", type=str, help="The input file containing Austin samples.",
+        "input",
+        type=str,
+        help="The input file containing Austin samples.",
     )
     arg_parser.add_argument(
         "output", type=str, help="The name of the output pprof file."
@@ -48,13 +53,15 @@ def main() -> None:
 
     args = arg_parser.parse_args()
 
-    pprof = PProf()
-
     try:
-        with open(args.input, "r") as fin:
+        with AustinFileReader(args.input) as fin:
+            mode = fin.metadata["mode"]
+            pprof = PProf(mode=mode)
+
+            # Read samples
             for line in fin:
                 try:
-                    pprof.add_sample(Sample.parse(line))
+                    pprof.add_samples(Sample.parse(line, MetricType.from_mode(mode)))
                 except InvalidSample:
                     continue
 

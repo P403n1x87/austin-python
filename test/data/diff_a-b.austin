@@ -1,0 +1,2 @@
+base (__main__.py:2);middle (utils.py:5);wrapper (decorators.py:4);top (logging.py:42) 2
+base (__main__.py:2);middle (utils.py:5);new (db.py:87) 36

@@ -22,11 +22,43 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from abc import ABC, abstractmethod
+from abc import ABC
+from abc import abstractmethod
 import argparse
-from typing import Any, Callable, List, Optional, Tuple
+import functools
+from itertools import takewhile
+import os
+import os.path
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import psutil
+
+from austin.config import AustinConfiguration
+
+try:
+    _cached_property = functools.cached_property  # type: ignore[attr-defined]
+except AttributeError:
+
+    def _cached_property(f: Callable[..., Any]) -> property:  # type: ignore[no-redef]
+        return property(functools.lru_cache(maxsize=1)(f))
+
+
+SemVer = Tuple[int, int, int]
+
+
+def _to_semver(version: Optional[str]) -> SemVer:
+    if version is None:
+        return (0, 0, 0)
+
+    return (  # type: ignore[return-value]
+        tuple(
+            int(_)
+            for _ in "".join(
+                list(takewhile(lambda _: _.isdigit() or _ == ".", version))
+            ).split(".")
+        )
+        + (0, 0, 0)
+    )[:3]
 
 
 class AustinError(Exception):
@@ -60,12 +92,13 @@ class BaseAustin(ABC):
     """
 
     BINARY = "austin"
+    BINARY_VERSION = (3, 0, 0)
 
     def __init__(
         self,
         sample_callback: Callable[[str], None] = None,
         ready_callback: Callable[[psutil.Process, psutil.Process, str], None] = None,
-        terminate_callback: Callable[[str], None] = None,
+        terminate_callback: Callable[[Dict[str, str]], None] = None,
     ) -> None:
         """The ``BaseAustin`` constructor.
 
@@ -76,9 +109,10 @@ class BaseAustin(ABC):
         self._child_proc: psutil.Process = None
         self._cmd_line: Optional[str] = None
         self._running: bool = False
+        self._meta: Dict[str, str] = {}
 
         try:
-            self._sample_callback = sample_callback or self.on_sample_received
+            self._sample_callback = sample_callback or self.on_sample_received  # type: ignore[attr-defined]
         except AttributeError:
             raise AustinError("No sample callback given or implemented.")
 
@@ -189,9 +223,26 @@ class BaseAustin(ABC):
 
         self._sample_callback(sample.rstrip())
 
+    def check_exit(self, rcode: int, stderr: Optional[str]) -> None:
+        """Check Austin exit status."""
+        if rcode:
+            if rcode in (-15, 15):
+                raise AustinTerminated()
+            raise AustinError(f"({rcode}) {stderr}")
+
+    def check_version(self) -> None:
+        """Check for the minimum Austin binary version."""
+        austin_version = self.version
+        if austin_version is None:
+            raise AustinError("Cannot determine Austin version")
+        if austin_version < self.BINARY_VERSION:
+            raise AustinError(
+                f"Incompatible Austin version (got {austin_version}, expected >= {self.BINARY_VERSION})"
+            )
+
     # ---- Default callbacks ----
 
-    def on_terminate(self, stats: str) -> Any:
+    def on_terminate(self, stats: Dict[str, str]) -> Any:
         """Terminate event callback.
 
         Implement to be notified when Austin has terminated gracefully. The
@@ -216,12 +267,47 @@ class BaseAustin(ABC):
         """
         pass
 
-    @property
-    def version(self) -> Optional[str]:
-        """Austin version."""
-        return self._version
+    # ---- Properties ----
+
+    @_cached_property
+    def binary_path(self) -> str:
+        """Discover the path of the Austin binary.
+
+        Lookup order is:
+        - current working directory
+        - ``AUSTINPATH`` variable
+        - ``~/.austinrc`` file
+        - ``PATH`` variable.
+        """
+        binary_name = self.BINARY + (os.name == "nt" and ".exe" or "")
+
+        # Try CWD
+        binary_path = os.path.join(os.getcwd(), binary_name)
+        if os.path.isfile(binary_path):
+            return binary_path
+
+        # Try with AUSTINPATH variable
+        austin_path = os.environ.get("AUSTINPATH", None)
+        if austin_path:
+            binary_path = os.path.join(os.path.expanduser(austin_path), binary_name)
+            if os.path.isfile(binary_path):
+                return binary_path
+
+        # Try with .austinrc file
+        if AustinConfiguration().binary is not None:
+            binary_path = os.path.expanduser(AustinConfiguration().binary)
+            if os.path.isfile(binary_path):
+                return binary_path
+
+        # Try from PATH
+        return self.BINARY
 
     @property
-    def python_version(self) -> Optional[str]:
+    def version(self) -> SemVer:
+        """Austin version."""
+        return _to_semver(self._meta.get("austin"))
+
+    @property
+    def python_version(self) -> SemVer:
         """The version of the detected Python interpreter."""
-        return self._python_version
+        return _to_semver(self._meta.get("python"))

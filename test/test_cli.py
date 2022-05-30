@@ -21,8 +21,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from austin.cli import AustinArgumentParser, AustinCommandLineError
 from pytest import raises
+
+from austin.cli import AustinArgumentParser
+from austin.cli import AustinCommandLineError
 
 
 class Bunch:
@@ -63,6 +65,20 @@ def test_command_with_austin_args():
     assert args.command == ["python3", "my_app.py", "-i", "100"]
 
 
+def test_exposure():
+    assert 2 == AustinArgumentParser().parse_args(["-x", "2", "python3"]).exposure
+
+
+def test_time_units():
+    assert 1000 == AustinArgumentParser().parse_args(["-i", "1ms", "python3"]).interval
+    assert 1000 == AustinArgumentParser().parse_args(["-t", "1s", "python3"]).timeout
+    assert 2 == AustinArgumentParser().parse_args(["-x", "2s", "python3"]).exposure
+    with raises(AustinCommandLineError):
+        AustinArgumentParser().parse_args(["-x", "2ls", "python3"]).exposure
+    with raises(AustinCommandLineError):
+        AustinArgumentParser().parse_args(["-x", "2l", "python3"]).exposure
+
+
 def test_pid_only():
     args = AustinArgumentParser().parse_args(["-i", "1000", "-p", "1086"])
 
@@ -100,4 +116,12 @@ def test_args_list():
         "50",
         "python3",
         "somescript.py",
+    ]
+
+    assert AustinArgumentParser.to_list(
+        AustinArgumentParser().parse_args(["-i", "1ms", "python"])
+    ) == [
+        "-i",
+        "1000",
+        "python",
     ]

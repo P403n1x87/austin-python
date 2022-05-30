@@ -22,52 +22,58 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 [tool.poetry]
-name = "austin-python"
-version = "0.1.0"
-description = "Python wrapper for Austin, the frame stack sampler for CPython"
-license = "GPL-3.0-or-later"
 authors = ["Gabriele N. Tornetta <phoenix1987@gmail.com>"]
-readme = "README.md"
-homepage = "https://github.com/P403n1x87/austin-python"
-repository = "https://github.com/P403n1x87/austin-python"
-documentation = "https://austin-python.readthedocs.io"
-keywords = ["performance", "profiling", "testing", "development"]
 classifiers = [
-  "Development Status :: 4 - Beta",
+  "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: GPLv3",
+  "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
   "Programming Language :: Python :: 3.6",
   "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
 ]
+description = "Python wrapper for Austin, the frame stack sampler for CPython"
+documentation = "https://austin-python.readthedocs.io"
+homepage = "https://github.com/P403n1x87/austin-python"
+keywords = ["performance", "profiling", "testing", "development"]
+license = "GPL-3.0-or-later"
+name = "austin-python"
 packages = [
-    { include = "austin" },
+  {include = "austin"},
 ]
+readme = "README.md"
+repository = "https://github.com/P403n1x87/austin-python"
+version = "0.0.0"
 
 [tool.poetry.scripts]
-austin2speedscope = "austin.format.speedscope:main"
+austin-compress = "austin.format.compress:main"
+austin-diff = "austin.tools.diff:main"
 austin2pprof = "austin.format.pprof.__main__:main"
 austin2pstat = "austin.format.pstat:main"
+austin2speedscope = "austin.format.speedscope:main"
 
 [tool.poetry.dependencies]
-python = "^3.6"
 dataclasses = "*"
-psutil = ">=5.7.0"
 protobuf = "^3.12.2"
+psutil = ">=5.7.0"
+python = "^3.6"
+toml = "^0.10.2"
 
 [tool.poetry.dev-dependencies]
+codecov = "^2.1.3"
 coverage = {extras = ["toml"], version = "^5.2"}
+mypy = "^0.770"
+nox = "^2020.8.22"
 pytest = ">=5.4.2"
 pytest-cov = ">=2.8.1"
 sphinx = "^3.0.4"
 sphinx-autodoc-typehints = "^1.10.3"
-nox = "^2020.8.22"
-mypy = "^0.770"
-codecov = "^2.1.3"
 
 [tool.poetry.urls]
 issues = "https://github.com/P403n1x87/austin-python/issues"
+
+[tool.poetry-dynamic-versioning]
+enable = true
 
 [tool.coverage.run]
 branch = true
@@ -76,6 +82,9 @@ source = ["austin"]
 [tool.coverage.report]
 show_missing = true
 
+[tool.isort]
+profile = "google"
+
 [build-system]
-requires = ["poetry>=0.12"]
-build-backend = "poetry.masonry.api"
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry_core>=1.0", "poetry-dynamic-versioning"]

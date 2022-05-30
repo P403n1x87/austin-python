@@ -13,8 +13,15 @@ If you want to make your own implementation of the wrapper, the
 starting point.
 
 .. note::
-    For the wrappers to work as expected, the Austin binary needs to be on
-    the ``PATH`` environment variable or they will fail to start.
+    For the wrappers to work as expected, the Austin binary needs to be
+    locatable from the following sources, in the given order
+
+    - current working directory;
+    - the ``AUSTINPATH`` environment variable which gives the path to the folder
+      that contains the Austin binary;
+    - the ``.austinrc`` TOML configuration file in the user's home folder, e.g.
+      ``~/.austinrc`` on Linux (:ref:`see below <austinrc>`);
+    - the ``PATH`` environment variable.
 
 
 The Abstract Austin Base Class
@@ -120,3 +127,25 @@ joining a thread to ensure a proper termination of the application.
 
 The example above shows how to implement the same echo example of the simple
 case using this wrapper.
+
+
+.. _austinrc:
+
+``.austinrc``
+-------------
+
+The ``.austinrc`` run-control file located in the user's home folder can be used
+to configure the wrappers. The basic implementation of
+:class:`austin.config.AustinConfiguration` supports the option `binary` to
+specify the location of the Austin binary. This is the third lookup option when
+trying to locate the Austin binary in order to start sampling, as discussed at
+the top of this page.
+
+.. autoclass:: austin.config.AustinConfiguration
+    :members:
+    :show-inheritance:
+
+Applications that need custom configuration can sub-class
+:class:`austin.config.AustinConfiguration` and modify the internal state
+`self._data`, which is then dumped to back to the `.austinrc` file via a call to
+`save`. The file format is TOML.

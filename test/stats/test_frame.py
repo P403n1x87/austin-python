@@ -21,13 +21,15 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from austin.stats import Frame, InvalidFrame
 from pytest import raises
+
+from austin.stats import Frame
+from austin.stats import InvalidFrame
 
 
 def test_frame_parser_valid():
-    assert Frame.parse("foo (/tmp/bar.py:10)") == Frame("foo", "/tmp/bar.py", 10)
-    assert Frame.parse("foo (<module>:42)") == Frame("foo", "<module>", 42)
+    assert Frame.parse("/tmp/bar.py:foo:10") == Frame("foo", "/tmp/bar.py", 10)
+    assert Frame.parse("<module>:foo:42") == Frame("foo", "<module>", 42)
 
 
 def test_frame_parser_invalid():
@@ -42,4 +44,4 @@ def test_frame_parser_invalid():
 
 
 def test_frame_str():
-    assert str(Frame("foo", "foo_module", 10)) == "foo (foo_module:10)"
+    assert str(Frame("foo", "foo_module", 10)) == "foo_module:foo:10"

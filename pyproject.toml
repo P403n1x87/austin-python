@@ -27,11 +27,11 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-  "Programming Language :: Python :: 3.6",
   "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
 ]
 description = "Python wrapper for Austin, the frame stack sampler for CPython"
 documentation = "https://austin-python.readthedocs.io"
@@ -51,12 +51,13 @@ austin-compress = "austin.format.compress:main"
 austin-diff = "austin.tools.diff:main"
 austin2pprof = "austin.format.pprof.__main__:main"
 austin2speedscope = "austin.format.speedscope:main"
+mojo2austin = "austin.format.mojo:main"
 
 [tool.poetry.dependencies]
 dataclasses = {version = "*", python = "<3.7"}
 protobuf = "^3.12.2"
 psutil = ">=5.7.0"
-python = "^3.6"
+python = "^3.7"
 toml = "^0.10.2"
 
 [tool.poetry.dev-dependencies]

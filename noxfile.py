@@ -1,10 +1,9 @@
 import os
 import sys
-import tempfile
 
 import nox
 
-nox.options.sessions = "lint", "tests"
+nox.options.sessions = "lint", "tests", "mypy"
 
 
 # ---- Configuration ----
@@ -28,23 +27,6 @@ LINT_EXCLUDES = ["austin/format/pprof/profile_pb2.py"]
 
 MYPY_LOCATIONS = LINT_LOCATIONS[:1]
 MYPY_EXCLUDES = ["austin/tools/diff.py"]
-
-
-# ---- Helpers ----
-
-
-def install_with_constraints(session, *args, **kwargs):
-    with tempfile.NamedTemporaryFile() as requirements:
-        session.run(
-            "poetry",
-            "export",
-            "--dev",
-            "--format=requirements.txt",
-            "--without-hashes",
-            f"--output={requirements.name}",
-            external=True,
-        )
-        session.install(f"--constraint={requirements.name}", *args, **kwargs)
 
 
 # ---- Sessions ----
@@ -85,7 +67,7 @@ def mypy(session):
 
 @nox.session(python="3.9")
 def coverage(session):
-    """Upload coverage data."""
-    install_with_constraints(session, "coverage[toml]", "codecov")
+    session.install("coverage[toml]", "codecov")
+
     session.run("coverage", "xml", "--fail-under=0")
     session.run("codecov", *session.posargs)

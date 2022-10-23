@@ -98,7 +98,7 @@ class BaseAustin(ABC):
     If an error was encountered, the :class:`AustinError` exception is thrown.
     """
 
-    BINARY = "austin"
+    BINARY = "austin" + (os.name == "nt" and ".exe" or "")
     BINARY_VERSION = (3, 0, 0)
 
     def __init__(
@@ -286,7 +286,7 @@ class BaseAustin(ABC):
         - ``~/.austinrc`` file
         - ``PATH`` variable.
         """
-        binary_name = self.BINARY + (os.name == "nt" and ".exe" or "")
+        binary_name = self.BINARY
 
         # Try CWD
         binary_path = os.path.join(os.getcwd(), binary_name)
@@ -296,8 +296,8 @@ class BaseAustin(ABC):
         # Try with AUSTINPATH variable
         austin_path = os.environ.get("AUSTINPATH", None)
         if austin_path:
-            binary_path = os.path.join(os.path.expanduser(austin_path), binary_name)
-            if os.path.isfile(binary_path):
+            binary_path = Path(austin_path).expanduser() / binary_name
+            if binary_path.is_file():
                 return binary_path
 
         # Try with .austinrc file

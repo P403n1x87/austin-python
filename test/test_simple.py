@@ -23,8 +23,11 @@
 
 import os
 import os.path
+from pathlib import Path
+import sys
 import tempfile
 
+import pytest
 from pytest import raises
 import toml
 
@@ -97,19 +100,18 @@ def test_simple_bad_options():
         )
 
 
-def assert_binary_path(path):
-    assert TestSimpleAustin().binary_path == path
+def assert_binary_path(path: Path):
+    assert Path(TestSimpleAustin().binary_path).resolve() == path.resolve()
 
 
 def test_binary_path_cwd():
     with tempfile.TemporaryDirectory() as tempdir:
-        old_cwd = os.getcwd()
+        old_cwd = Path.cwd()
         os.chdir(tempdir)
 
-        with open(TestSimpleAustin.BINARY, "w") as fout:
-            fout.write("Hello")
+        Path(TestSimpleAustin.BINARY).write_text("Hello")
 
-        assert_binary_path(os.path.join(os.getcwd(), TestSimpleAustin.BINARY))
+        assert_binary_path(Path.cwd() / TestSimpleAustin.BINARY)
 
         os.chdir(old_cwd)
 
@@ -119,9 +121,8 @@ def test_binary_path_austinpath():
         old_path = os.environ.get("AUSTINPATH")
 
         os.environ["AUSTINPATH"] = tempdir
-        temp_binary = os.path.join(os.environ["AUSTINPATH"], TestSimpleAustin.BINARY)
-        with open(temp_binary, "w") as fout:
-            fout.write("Hello")
+        temp_binary = Path(tempdir) / TestSimpleAustin.BINARY
+        temp_binary.write_text("Hello")
 
         assert_binary_path(temp_binary)
 
@@ -142,7 +143,7 @@ def test_binary_path_rc():
 
         AC().reload()
 
-        assert_binary_path(AC.RC)
+        assert_binary_path(Path(AC.RC))
 
         if old_path is not None:
             os.environ["AUSTINPATH"] = old_path

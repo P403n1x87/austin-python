@@ -7,6 +7,33 @@ from io import BufferedReader
 __version__ = "0.1.0"
 
 
+def to_varint(n: int) -> bytes:
+    """Convert an integer to a variable-length integer."""
+    result = bytearray()
+    b = 0
+
+    if n < 0:
+        b |= 0x40
+        n = -n
+
+    b |= n & 0x3F
+
+    n >>= 6
+    if n:
+        b |= 0x80
+
+    result.append(b)
+
+    while n:
+        b = n & 0x7F
+        n >>= 7
+        if n:
+            b |= 0x80
+        result.append(b)
+
+    return bytes(result)
+
+
 class MojoEvents:
     """MOJO events."""
 
@@ -210,9 +237,13 @@ class MojoFile:
         self._last_bytes = bytearray()
         self._string_map = {1: MojoString(1, "<unknown>")}
 
-        assert self.read(3) == b"MOJ"
+        if self.read(3) != b"MOJ":
+            raise ValueError("Not a MOJO file")
 
         self.mojo_version = self.read_int()
+
+        self.header = bytes(self._last_bytes)
+        self._last_bytes.clear()
 
     def read(self, n: int) -> bytes:
         """Read bytes from the MOJO file."""
@@ -358,19 +389,19 @@ class MojoFile:
     def parse_event(self) -> t.Generator[t.Optional[MojoEvent], None, None]:
         """Parse a single event."""
         try:
-            (event,) = self.read(1)
+            (event_id,) = self.read(1)
         except ValueError:
             yield None
             return
 
         try:
-            for e in t.cast(dict, self.__handlers__)[event](self):
-                e.raw = bytes(self._last_bytes)
+            for event in t.cast(dict, self.__handlers__)[event_id](self):
+                event.raw = bytes(self._last_bytes)
                 self._last_bytes.clear()
-                yield e
+                yield event
         except KeyError as exc:
             raise ValueError(
-                f"Unhandled event: {event} (offset: {self._offset}, last read: {self._last_read})"
+                f"Unhandled event: {event_id} (offset: {self._offset}, last read: {self._last_read})"
             ) from exc
 
     def parse(self) -> t.Iterator[MojoEvent]:
@@ -386,7 +417,6 @@ class MojoFile:
 
 
 def main() -> None:
-    """austin2speedscope entry point."""
     from argparse import ArgumentParser
 
     arg_parser = ArgumentParser(

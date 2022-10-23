@@ -63,6 +63,7 @@ austin-diff = "austin.tools.diff:main"
 austin2pprof = "austin.format.pprof.__main__:main"
 austin2speedscope = "austin.format.speedscope:main"
 mojo2austin = "austin.format.mojo:main"
+austinp-resolve = "austin.tools.resolve:main"
 
 [tool.hatch.envs.tests]
 template = "tests"

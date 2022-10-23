@@ -130,7 +130,7 @@ def test_binary_path_austinpath():
 
 def test_binary_path_rc():
     with tempfile.TemporaryDirectory() as tempdir:
-        old_home = os.environ["HOME"]
+        old_home = os.environ.get("HOME")
         old_path = os.environ.get("AUSTINPATH")
         del os.environ["AUSTINPATH"]
 
@@ -145,4 +145,5 @@ def test_binary_path_rc():
 
         if old_path is not None:
             os.environ["AUSTINPATH"] = old_path
-        os.environ["HOME"] = old_home
+        if old_home is not None:
+            os.environ["HOME"] = old_home

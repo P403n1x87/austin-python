@@ -6,11 +6,8 @@ on:
       - main
   pull_request:
 
-env:
-  PYTHON: "3.9"
-
 jobs:
-  mypy:
+  typing:
     runs-on: "ubuntu-latest"
 
     name: Type checking
@@ -19,14 +16,13 @@ jobs:
 
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - run: |
-          pip install poetry
-          poetry install
-          poetry run nox -rs mypy
+          pip install hatch
+          hatch -e checks run typing
 
-  lint:
+  linting:
     runs-on: "ubuntu-latest"
 
     name: Linting
@@ -35,9 +31,8 @@ jobs:
 
       - uses: actions/setup-python@v4
         with:
-          python-version: "3.9"
+          python-version: "3.10"
 
       - run: |
-          pip install poetry
-          poetry install
-          poetry run nox -rs lint
+          pip install hatch
+          hatch -e checks run linting

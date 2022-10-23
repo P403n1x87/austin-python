@@ -296,22 +296,22 @@ class BaseAustin(ABC):
         binary_name = self.BINARY
 
         # Try CWD
-        binary_path = os.path.join(os.getcwd(), binary_name)
-        if os.path.isfile(binary_path):
-            return binary_path
+        binary_path = Path.cwd() / binary_name
+        if binary_path.is_file():
+            return str(binary_path)
 
         # Try with AUSTINPATH variable
         austin_path = os.environ.get("AUSTINPATH", None)
         if austin_path:
             binary_path = Path(austin_path).expanduser() / binary_name
             if binary_path.is_file():
-                return binary_path
+                return str(binary_path)
 
         # Try with .austinrc file
         if AustinConfiguration().binary is not None:
-            binary_path = os.path.expanduser(AustinConfiguration().binary)
-            if os.path.isfile(binary_path):
-                return binary_path
+            binary_path = Path(AustinConfiguration().binary).expanduser()
+            if binary_path.is_file():
+                return str(binary_path)
 
         # Try from PATH
         return self.BINARY

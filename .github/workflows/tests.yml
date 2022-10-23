@@ -71,17 +71,13 @@ jobs:
       #   run: brew install austin
       #   if: startsWith(matrix.os, 'macos')
 
-      - run: |
-          pip install poetry
-          cd $GITHUB_WORKSPACE/main
-          poetry install
+      - run: pip install hatch
 
       - name: Run tests on Linux
         run: |
           cd $GITHUB_WORKSPACE/main
           export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
-          export PYTHON="${{ matrix.python-version }}"
-          poetry run nox -rs tests
+          hatch -e "tests.py${{ matrix.python-version }}" run tests
         if: "startsWith(matrix.os, 'ubuntu')"
 
       # TODO: Tests stall on MacOS
@@ -89,21 +85,21 @@ jobs:
       #   run: |
       #     cd $GITHUB_WORKSPACE/main
       #     export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
-      #     sudo nox
+      #     sudo hatch -e "tests.py${{ matrix.python-version }}" run tests
       #   if: startsWith(matrix.os, 'macos')
 
       - name: Run tests on Windows
         run: |
           cd $env:GITHUB_WORKSPACE/main
           $env:PATH="$env:GITHUB_WORKSPACE\austin\src;$env:PATH"
-          $env:PYTHON="${{ matrix.python-version }}"
-          poetry run nox -rs tests
+          hatch -e "tests.py${{ matrix.python-version }}" run tests
         if: "startsWith(matrix.os, 'windows')"
 
       - name: Publish coverage metrics
         run: |
           cd $GITHUB_WORKSPACE/main
-          poetry run nox -rs coverage
-        if: startsWith(matrix.os, 'ubuntu')
+          hatch -e coverage run cov
+          hatch -e coverage run codecov
+        if: startsWith(matrix.os, 'ubuntu') && matrix.python-version == '3.10'
         env:
           CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}

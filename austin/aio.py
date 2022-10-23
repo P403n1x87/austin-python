@@ -23,7 +23,9 @@
 
 import asyncio
 import sys
-from typing import Dict, List, Optional
+from typing import Dict
+from typing import List
+from typing import Optional
 
 from austin import AustinError
 from austin import BaseAustin

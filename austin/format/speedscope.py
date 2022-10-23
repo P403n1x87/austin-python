@@ -21,12 +21,16 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import json
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
-import json
-from typing import Dict, List, Optional, TextIO, Union
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import TextIO
+from typing import Union
 
 from austin.format import Mode
 from austin.stats import AustinFileReader
@@ -34,6 +38,7 @@ from austin.stats import Frame
 from austin.stats import InvalidSample
 from austin.stats import MetricType
 from austin.stats import Sample
+
 
 __version__ = "0.2.1"
 
@@ -174,8 +179,8 @@ class Speedscope:
 
 def main() -> None:
     """austin2speedscope entry point."""
-    from argparse import ArgumentParser
     import os
+    from argparse import ArgumentParser
 
     arg_parser = ArgumentParser(
         prog="austin2speedscope",

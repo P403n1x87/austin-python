@@ -124,7 +124,9 @@ source = ["austin"]
 show_missing = true
 
 [tool.isort]
-profile = "google"
+force_single_line = true
+lines_after_imports = 2
+profile = "black"
 
 [tool.mypy]
 ignore_missing_imports = true

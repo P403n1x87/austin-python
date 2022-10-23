@@ -21,10 +21,13 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from argparse import REMAINDER
 from argparse import ArgumentParser
 from argparse import Namespace
-from argparse import REMAINDER
-from typing import Any, Callable, List, NoReturn
+from typing import Any
+from typing import Callable
+from typing import List
+from typing import NoReturn
 
 from austin import AustinError
 

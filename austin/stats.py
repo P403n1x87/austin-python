@@ -21,16 +21,25 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from copy import deepcopy
 import dataclasses
+import re
+from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
-import re
 from threading import Lock
-from typing import Any, Dict, Generator, Iterator, List, Optional, TextIO, Type, Union
+from typing import Any
+from typing import Dict
+from typing import Generator
+from typing import Iterator
+from typing import List
+from typing import Optional
+from typing import TextIO
+from typing import Type
+from typing import Union
 
 from austin import AustinError
+
 
 # ---- Custom types ----
 ThreadName = str

@@ -23,13 +23,11 @@
 
 import os
 import os.path
-from pathlib import Path
-import sys
 import tempfile
+from pathlib import Path
 
-import pytest
-from pytest import raises
 import toml
+from pytest import raises
 
 from austin import AustinError
 from austin.config import AustinConfiguration as AC

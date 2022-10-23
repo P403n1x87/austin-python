@@ -24,13 +24,17 @@
 from argparse import ArgumentParser
 from difflib import SequenceMatcher
 from io import StringIO
-from typing import List, Set, TextIO, Tuple
+from typing import List
+from typing import Set
+from typing import TextIO
+from typing import Tuple
 
 from austin.format.compress import compress
 from austin.stats import Frame
 from austin.stats import InvalidSample
 from austin.stats import Metric
 from austin.stats import Sample
+
 
 FoldedStack = List[Frame]
 

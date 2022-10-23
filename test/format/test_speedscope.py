@@ -20,8 +20,8 @@
 # GNU General Public License for more details.
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
-from dataclasses import fields
 import io
+from dataclasses import fields
 
 from austin.format import Mode
 from austin.format.speedscope import Speedscope
@@ -31,6 +31,7 @@ from austin.stats import AustinFileReader
 from austin.stats import InvalidSample
 from austin.stats import MetricType
 from austin.stats import Sample
+
 
 _SPEEDSCOPE_FILE_FIELDS = ("$schema", "shared", "profiles", "name", "exporter")
 _SPEEDSCOPE_SCHEMA_URL = "https://www.speedscope.app/file-format-schema.json"

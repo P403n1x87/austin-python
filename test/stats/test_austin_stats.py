@@ -21,8 +21,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from copy import deepcopy
 import io
+from copy import deepcopy
 
 from austin.stats import AustinStats
 from austin.stats import AustinStatsType
@@ -33,6 +33,7 @@ from austin.stats import MetricType
 from austin.stats import ProcessStats
 from austin.stats import Sample
 from austin.stats import ThreadStats
+
 
 DUMP_LOAD_SAMPLES = """# mode: wall
 

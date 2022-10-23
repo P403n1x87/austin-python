@@ -21,13 +21,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from typing import Any, BinaryIO, Dict, List, Tuple, Union
+from typing import Any
+from typing import BinaryIO
+from typing import Dict
+from typing import List
+from typing import Tuple
+from typing import Union
 
 from austin.format import Mode
 from austin.format.pprof.profile_pb2 import Profile
 from austin.format.pprof.profile_pb2 import Sample
 from austin.stats import Frame
 from austin.stats import Sample as AustinSample
+
 
 PROCESS_ID_LABEL = "Process ID"
 THREAD_ID_LABEL = "Thread ID"

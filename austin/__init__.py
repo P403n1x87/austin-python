@@ -22,18 +22,25 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 
-from abc import ABC
-from abc import abstractmethod
 import argparse
 import functools
-from itertools import takewhile
 import os
 import os.path
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from abc import ABC
+from abc import abstractmethod
+from itertools import takewhile
+from pathlib import Path
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
+from typing import Tuple
 
 import psutil
 
 from austin.config import AustinConfiguration
+
 
 try:
     _cached_property = functools.cached_property  # type: ignore[attr-defined]

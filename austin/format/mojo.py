@@ -1,7 +1,8 @@
+import typing as t
 from dataclasses import dataclass
 from enum import Enum
 from io import BufferedReader
-import typing as t
+
 
 __version__ = "0.1.0"
 

@@ -22,7 +22,9 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from threading import Thread
-from typing import Any, List, Optional
+from typing import Any
+from typing import List
+from typing import Optional
 
 from austin import AustinError
 from austin.simple import SimpleAustin

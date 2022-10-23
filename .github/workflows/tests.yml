@@ -1,5 +1,11 @@
 name: Tests
-on: push
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
 jobs:
   tests:
     runs-on: ${{ matrix.os }}
@@ -65,37 +71,39 @@ jobs:
       #   run: brew install austin
       #   if: startsWith(matrix.os, 'macos')
 
-      - run: pip install nox
-      - run: pip install poetry
+      - run: |
+          pip install poetry
+          cd $GITHUB_WORKSPACE/main
+          poetry install
 
-      - name: Run nox on Linux
+      - name: Run tests on Linux
         run: |
           cd $GITHUB_WORKSPACE/main
           export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
           export PYTHON="${{ matrix.python-version }}"
-          nox
+          poetry run nox -rs tests
         if: "startsWith(matrix.os, 'ubuntu')"
 
       # TODO: Tests stall on MacOS
-      # - name: Run nox on macOS
+      # - name: Run tests on macOS
       #   run: |
       #     cd $GITHUB_WORKSPACE/main
       #     export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
       #     sudo nox
       #   if: startsWith(matrix.os, 'macos')
 
-      - name: Run nox on Windows
+      - name: Run tests on Windows
         run: |
           cd $env:GITHUB_WORKSPACE/main
           $env:PATH="$env:GITHUB_WORKSPACE\austin\src;$env:PATH"
           $env:PYTHON="${{ matrix.python-version }}"
-          nox
+          poetry run nox -rs tests
         if: "startsWith(matrix.os, 'windows')"
 
       - name: Publish coverage metrics
         run: |
           cd $GITHUB_WORKSPACE/main
-          nox -rs coverage
+          poetry run nox -rs coverage
         if: startsWith(matrix.os, 'ubuntu')
         env:
           CODECOV_TOKEN: ${{secrets.CODECOV_TOKEN}}

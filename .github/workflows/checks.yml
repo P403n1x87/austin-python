@@ -1,0 +1,43 @@
+name: Checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+env:
+  PYTHON: "3.9"
+
+jobs:
+  mypy:
+    runs-on: "ubuntu-latest"
+
+    name: Type checking
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - run: |
+          pip install poetry
+          poetry install
+          poetry run nox -rs mypy
+
+  lint:
+    runs-on: "ubuntu-latest"
+
+    name: Linting
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - run: |
+          pip install poetry
+          poetry install
+          poetry run nox -rs lint

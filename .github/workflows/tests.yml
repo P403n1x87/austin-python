@@ -40,6 +40,12 @@ jobs:
           cd $GITHUB_WORKSPACE/austin
           gcc -Wall -O3 -Os -s -pthread src/*.c -o src/austin
 
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y binutils binutils-common
+          addr2line -V
+
       - name: Run tests
         run: |
           cd $GITHUB_WORKSPACE/main

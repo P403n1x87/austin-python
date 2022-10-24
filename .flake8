@@ -1,6 +1,6 @@
 [flake8]
 select = ANN,B,B9,C,D,E,F,W,I
-ignore = ANN101,ANN102,ANN401,B950,D100,D104,D107,E203,E501,I001,I005,W503,W606
+ignore = ANN101,ANN102,ANN401,B950,D100,D102,D103,D104,D107,E203,E501,I001,I005,W503,W606
 exclude =
   austin/format/pprof/profile_pb2.py
 max-line-length = 88

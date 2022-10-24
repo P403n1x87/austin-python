@@ -23,35 +23,26 @@
 
 import sys
 import tempfile
-from io import BytesIO
 from pathlib import Path
-from random import randint
 
-from austin.format.mojo import MojoFile
-from austin.format.mojo import main
-from austin.format.mojo import to_varint
+import pytest
+
+from austin.tools.resolve import main
 
 
 HERE = Path(__file__).parent
 DATA = HERE.parent / "data"
 
 
-def test_mojo_snapshot():
-    input = DATA / "test.mojo"
-    output = Path(tempfile.NamedTemporaryFile().name).with_suffix(".austin")
-    expected = DATA / "test.austin"
+@pytest.mark.xfail(reason="Dependant on binaries being available")
+@pytest.mark.skipif(sys.platform != "linux", reason="Only supported on Linux")
+def test_resolve_snapshot():
+    input = DATA / "austinp.mojo"
+    output = Path(tempfile.NamedTemporaryFile().name).with_suffix(".resolved.mojo")
+    expected = DATA / "austinp.resolved.mojo"
 
-    sys.argv = ["mojo2austin", str(input), str(output)]
+    sys.argv = ["austinp-resolve", str(input), str(output)]
 
     main()
 
-    assert expected.read_text() == output.read_text()
-
-
-def test_mojo_varint():
-    for _ in range(100_000):
-        n = randint(-4e9, 4e9)
-        buffer = BytesIO()
-        buffer.write(b"MOJ\0" + to_varint(n))
-        buffer.seek(0)
-        assert MojoFile(buffer).read_int() == n
+    assert expected.read_bytes() == output.read_bytes()

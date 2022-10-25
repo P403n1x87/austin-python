@@ -72,7 +72,7 @@ dependencies = [
   "pytest-cov>=2.8.1",
 ]
 [tool.hatch.envs.tests.scripts]
-tests = "pytest --cov=austin --cov-report=term-missing --cov-report=xml"
+tests = "pytest --cov=austin --cov-report=term-missing --cov-report=xml {args}"
 
 [[tool.hatch.envs.tests.matrix]]
 python = ["3.7", "3.8", "3.9", "3.10", "3.11"]
@@ -92,8 +92,8 @@ dependencies = [
 ]
 
 [tool.hatch.envs.checks.scripts]
-typing = "mypy --show-error-codes --install-types --non-interactive austin/ test/"
-linting = "flake8 austin/ test/"
+typing = "mypy --show-error-codes --install-types --non-interactive {args} austin/ test/"
+linting = "flake8 {args} austin/ test/ "
 
 [tool.hatch.envs.coverage]
 python = "3.10"

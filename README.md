@@ -13,11 +13,10 @@
     <img src="https://github.com/P403n1x87/austin-python/workflows/Tests/badge.svg"
          alt="GitHub Actions: Tests">
   </a>
-  <a href="https://travis-ci.org/P403n1x87/austin-python">
-    <img src="https://travis-ci.org/P403n1x87/austin-python.svg?branch=main"
-         alt="Travis CI">
-  </a>
-  <a href="https://codecov.io/gh/P403n1x87/austin-python">
+  <a href="https://github.com/P403n1x87/austin-python/actions?workflow=Checks">
+    <img src="https://github.com/P403n1x87/austin-python/workflows/Checks/badge.svg"
+         alt="GitHub Actions: Checks">
+  </a>  <a href="https://codecov.io/gh/P403n1x87/austin-python">
     <img src="https://codecov.io/gh/P403n1x87/austin-python/branch/main/graph/badge.svg"
          alt="Codecov">
   </a>

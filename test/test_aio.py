@@ -46,7 +46,7 @@ class TestAsyncAustin(AsyncAustin):
 
     def on_ready(self, process, child_process, command_line):
         assert process.pid != child_process.pid
-        assert "python" in self.get_command_line()
+        assert "python" in self.get_command_line().lower()
         self._ready = True
 
     def on_sample_received(self, line):

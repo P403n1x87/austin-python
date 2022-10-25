@@ -51,7 +51,7 @@ class TestThreadedAustin(ThreadedAustin):
 
     def on_ready(self, process, child_process, command_line):
         assert process.pid != child_process.pid
-        assert "python" in self.get_command_line()
+        assert "python" in self.get_command_line().lower()
         self._ready = True
 
     def on_sample_received(self, line):
@@ -80,7 +80,7 @@ class InvalidBinaryThreadedAustin(ThreadedAustin):
 def test_threaded():
     austin = TestThreadedAustin()
 
-    austin.start(["-i", "1000", "python", "-c", "for i in range(1000000): print(i)"])
+    austin.start(["-i", "1000", "python", "-c", "from time import sleep; sleep(2)"])
     austin.join()
 
     austin.assert_callbacks_called()

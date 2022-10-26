@@ -215,6 +215,9 @@ class MojoFullMetrics(MojoEvent):
         return f" {t.cast(MojoMetric,time).value},{idle},{t.cast(MojoMetric, memory).value}\n"
 
 
+UNKNOWN = MojoString(1, "<unknown>")
+
+
 class MojoFile:
     """MOJO file."""
 
@@ -231,11 +234,12 @@ class MojoFile:
         self.mojo = mojo
         self._metrics: t.List[t.Union[MojoMetric, int]] = []
         self._full_mode = False
-        self._frame_map: t.Dict[int, MojoFrame] = {}
+        self._frame_map: t.Dict[t.Tuple[int, int], MojoFrame] = {}
         self._offset = 0
         self._last_read = 0
         self._last_bytes = bytearray()
-        self._string_map = {1: MojoString(1, "<unknown>")}
+        self._string_map: t.Dict[t.Tuple[int, int], MojoString] = {}
+        self._pid: t.Optional[int] = None
 
         if self.read(3) != b"MOJ":
             raise ValueError("Not a MOJO file")
@@ -244,6 +248,18 @@ class MojoFile:
 
         self.header = bytes(self._last_bytes)
         self._last_bytes.clear()
+
+    def ref(self, n: int) -> t.Tuple[int, int]:
+        """Return a per-process reference key.
+
+        MOJO objects that carry a numeric reference is to be interpreted as
+        relative to the current process, so it has to be combined with the
+        last seen PID.
+        """
+        pid = self._pid
+        assert pid is not None, pid
+
+        return (pid, n)
 
     def read(self, n: int) -> bytes:
         """Read bytes from the MOJO file."""
@@ -305,26 +321,34 @@ class MojoFile:
         """Parse a stack."""
         yield from self._emit_metrics()
 
-        yield MojoStack(self.read_int(), self.read_string())
+        self._pid = pid = self.read_int()
+        yield MojoStack(pid, self.read_string())
+
+    def _lookup_string(self) -> MojoString:
+        n = self.read_int()
+        if n == 1:
+            return UNKNOWN
+
+        return self._string_map[self.ref(n)]
 
     @handles(MojoEvents.FRAME)
     def parse_frame(self) -> t.Generator[MojoFrame, None, None]:
         """Parse a frame."""
         frame_key = self.read_int()
-        filename = MojoStringReference(self._string_map[self.read_int()])
-        scope = MojoStringReference(self._string_map[self.read_int()])
+        filename = MojoStringReference(self._lookup_string())
+        scope = MojoStringReference(self._lookup_string())
         line = self.read_int()
 
         frame = MojoFrame(frame_key, filename, scope, line)
 
-        self._frame_map[frame_key] = frame
+        self._frame_map[self.ref(frame_key)] = frame
 
         yield frame
 
     @handles(MojoEvents.FRAME_REF)
     def parse_frame_ref(self) -> t.Generator[MojoFrameReference, None, None]:
         """Parse a frame reference."""
-        yield MojoFrameReference(self._frame_map[self.read_int()])
+        yield MojoFrameReference(self._frame_map[self.ref(self.read_int())])
 
     @handles(MojoEvents.FRAME_KERNEL)
     def parse_kernel_frame(self) -> t.Generator[MojoKernelFrame, None, None]:
@@ -377,14 +401,15 @@ class MojoFile:
 
         string = MojoString(key, value)
 
-        self._string_map[key] = string
+        self._string_map[self.ref(key)] = string
 
         yield string
 
     @handles(MojoEvents.STRING_REF)
     def parse_string_ref(self) -> t.Generator[MojoStringReference, None, None]:
         """Parse string reference."""
-        yield MojoStringReference(self._string_map[self.read_int()])
+        assert self._pid, self._pid
+        yield MojoStringReference(self._string_map[self.ref(self.read_int())])
 
     def parse_event(self) -> t.Generator[t.Optional[MojoEvent], None, None]:
         """Parse a single event."""

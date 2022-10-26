@@ -27,6 +27,8 @@ from io import BytesIO
 from pathlib import Path
 from random import randint
 
+import pytest
+
 from austin.format.mojo import MojoFile
 from austin.format.mojo import main
 from austin.format.mojo import to_varint
@@ -36,10 +38,11 @@ HERE = Path(__file__).parent
 DATA = HERE.parent / "data"
 
 
-def test_mojo_snapshot():
-    input = DATA / "test.mojo"
+@pytest.mark.parametrize("case", ["test", "mp"])
+def test_mojo_snapshot(case):
+    input = (DATA / case).with_suffix(".mojo")
     output = Path(tempfile.NamedTemporaryFile().name).with_suffix(".austin")
-    expected = DATA / "test.austin"
+    expected = (DATA / case).with_suffix(".austin")
 
     sys.argv = ["mojo2austin", str(input), str(output)]
 

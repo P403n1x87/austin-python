@@ -23,7 +23,7 @@
 
 [project]
 name = "austin-python"
-description = "Create a pyproject.toml file for an existing project."
+description = "Python wrapper for Austin, the CPython frame stack sampler."
 authors = [
   {name = "Gabriele N. Tornetta", email="phoenix1987@gmail.com"},
 ]

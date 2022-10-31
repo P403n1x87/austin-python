@@ -25,19 +25,7 @@ from pytest import raises
 
 from austin import AustinError
 from austin import AustinTerminated
-from austin.simple import SimpleAustin
 from austin.threads import ThreadedAustin
-
-
-def check_raises(exc):
-    def _check_raises_decorator(f):
-        def _check_raises_wrapper(*args, **kwargs):
-            with raises(exc):
-                f(*args, **kwargs)
-
-        return _check_raises_wrapper
-
-    return _check_raises_decorator
 
 
 class TestThreadedAustin(ThreadedAustin):
@@ -72,10 +60,6 @@ class TestThreadedAustin(ThreadedAustin):
 class InvalidBinaryThreadedAustin(ThreadedAustin):
     BINARY = "_austin"
 
-    @check_raises(AustinError)
-    def run(self, *args, **kwargs):
-        super().run(*args, **kwargs)
-
 
 def test_threaded():
     austin = TestThreadedAustin()
@@ -109,8 +93,10 @@ def test_threaded_terminate():
 
 
 def test_threaded_invalid_binary():
-    SimpleAustin.start = check_raises(AustinError)(SimpleAustin.start)
-    InvalidBinaryThreadedAustin(sample_callback=lambda x: None).start(["python"])
+    austin = InvalidBinaryThreadedAustin(sample_callback=lambda x: None)
+    austin.start(["python"])
+    with raises(AustinError):
+        austin.join()
 
 
 def test_threaded_no_sample_callback():
@@ -121,4 +107,5 @@ def test_threaded_no_sample_callback():
 def test_threaded_bad_options():
     austin = TestThreadedAustin(terminate_callback=lambda *args: None)
     austin.start(["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"])
-    austin.join()
+    with raises(AustinError):
+        austin.join()

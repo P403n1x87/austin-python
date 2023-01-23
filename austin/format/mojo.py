@@ -93,7 +93,7 @@ class MojoEvent:
         return ""
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoString(MojoEvent):
     """MOJO string."""
 
@@ -101,7 +101,7 @@ class MojoString(MojoEvent):
     value: str
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoStringReference(MojoEvent):
     """MOJO string reference."""
 
@@ -118,7 +118,7 @@ class MojoIdle(MojoEvent):
     pass
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoMetadata(MojoEvent):
     """MOJO metadata."""
 
@@ -130,7 +130,7 @@ class MojoMetadata(MojoEvent):
         return f"# {self.key}: {self.value}\n"
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoStack(MojoEvent):
     """MOJO stack."""
 
@@ -142,7 +142,7 @@ class MojoStack(MojoEvent):
         return f"P{self.pid};T{int(self.tid, 16)}"
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoFrame(MojoEvent):
     """MOJO frame."""
 
@@ -150,9 +150,12 @@ class MojoFrame(MojoEvent):
     filename: MojoStringReference
     scope: MojoStringReference
     line: int
+    line_end: int = 0
+    column: int = 0
+    column_end: int = 0
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoKernelFrame(MojoEvent):
     """MOJO kernel frame."""
 
@@ -163,7 +166,7 @@ class MojoKernelFrame(MojoEvent):
         return f";kernel:{self.scope}:0"
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoSpecialFrame(MojoEvent):
     """MOJO special frame."""
 
@@ -174,7 +177,7 @@ class MojoSpecialFrame(MojoEvent):
         return f";:{self.label}:"
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoFrameReference(MojoEvent):
     """MOJO frame reference."""
 
@@ -185,7 +188,7 @@ class MojoFrameReference(MojoEvent):
         return f";{self.frame.filename.to_austin()}:{self.frame.scope.to_austin()}:{self.frame.line}"
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoMetric(MojoEvent):
     """MOJO metric."""
 
@@ -197,7 +200,7 @@ class MojoMetric(MojoEvent):
         return f" {self.value}\n"
 
 
-@dataclass
+@dataclass(frozen=True, eq=True)
 class MojoFullMetrics(MojoEvent):
     """MOJO full metrics."""
 
@@ -339,7 +342,16 @@ class MojoFile:
         scope = MojoStringReference(self._lookup_string())
         line = self.read_int()
 
-        frame = MojoFrame(frame_key, filename, scope, line)
+        if self.mojo_version == 1:
+            line_end = column = column_end = 0
+        else:
+            line_end = self.read_int()
+            column = self.read_int()
+            column_end = self.read_int()
+
+        frame = MojoFrame(
+            frame_key, filename, scope, line, line_end, column, column_end
+        )
 
         self._frame_map[self.ref(frame_key)] = frame
 
@@ -421,7 +433,7 @@ class MojoFile:
 
         try:
             for event in t.cast(dict, self.__handlers__)[event_id](self):
-                event.raw = bytes(self._last_bytes)
+                object.__setattr__(event, "raw", bytes(self._last_bytes))
                 self._last_bytes.clear()
                 yield event
         except KeyError as exc:

@@ -44,9 +44,9 @@ classifiers = [
 
 requires-python = ">=3.7"
 dependencies = [
-  "protobuf~=3.12.2",
+  "protobuf~=3.12",
   "psutil>=5.7.0",
-  "toml~=0.10.2",
+  "toml~=0.10",
 ]
 
 dynamic = ["version"]

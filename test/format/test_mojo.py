@@ -31,6 +31,7 @@ import pytest
 
 from austin.format.mojo import MojoFile
 from austin.format.mojo import MojoFrame
+from austin.format.mojo import MojoStack
 from austin.format.mojo import MojoString
 from austin.format.mojo import MojoStringReference
 from austin.format.mojo import main
@@ -161,3 +162,8 @@ def test_mojo_column_info():
                 column_end=17,
             ),
         }
+
+
+def test_mojo_stack():
+    assert MojoStack(1, -1, "noiid").to_austin() == "P1;Tnoiid"
+    assert MojoStack(1, 2, "iid").to_austin() == "P1;T2:iid"

@@ -240,7 +240,7 @@ class BaseAustin(ABC):
     def check_exit(self, rcode: int, stderr: Optional[str]) -> None:
         """Check Austin exit status."""
         if rcode:
-            if rcode in (-15, 15):
+            if rcode in {-15, 15, 241}:
                 raise AustinTerminated()
             raise AustinError(f"({rcode}) {stderr}")
 

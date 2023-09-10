@@ -29,7 +29,10 @@ from random import randint
 
 import pytest
 
-from austin.format.mojo import MojoFile, MojoFrame, MojoString, MojoStringReference
+from austin.format.mojo import MojoFile
+from austin.format.mojo import MojoFrame
+from austin.format.mojo import MojoString
+from austin.format.mojo import MojoStringReference
 from austin.format.mojo import main
 from austin.format.mojo import to_varint
 
@@ -53,7 +56,7 @@ def test_mojo_snapshot(case):
 
 def test_mojo_varint():
     for _ in range(100_000):
-        n = randint(-4e9, 4e9)
+        n = randint(int(-4e9), int(4e9))
         buffer = BytesIO()
         buffer.write(b"MOJ\0" + to_varint(n))
         buffer.seek(0)

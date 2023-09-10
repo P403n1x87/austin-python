@@ -69,6 +69,7 @@ austinp-resolve = "austin.tools.resolve:main"
 template = "tests"
 dependencies = [
   "pytest>=5.4.2",
+  "pytest-asyncio",
   "pytest-cov>=2.8.1",
 ]
 [tool.hatch.envs.tests.scripts]

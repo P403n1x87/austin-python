@@ -24,6 +24,7 @@
 import asyncio
 import sys
 
+import pytest
 from pytest import raises
 
 from austin import AustinError
@@ -70,21 +71,20 @@ class InvalidBinaryAsyncAustin(AsyncAustin):
     BINARY = "_austin"
 
 
-def test_async_time():
+@pytest.mark.asyncio
+async def test_async_time():
     austin = TestAsyncAustin()
 
-    asyncio.get_event_loop().run_until_complete(
-        austin.start(
-            [
-                "-t",
-                "10",
-                "-Ci",
-                "100",
-                "python",
-                "-c",
-                "from time import sleep; sleep(2)",
-            ]
-        )
+    await austin.start(
+        [
+            "-t",
+            "10",
+            "-Ci",
+            "100",
+            "python",
+            "-c",
+            "from time import sleep; sleep(2)",
+        ]
     )
 
     austin.assert_callbacks_called()
@@ -93,30 +93,31 @@ def test_async_time():
     assert austin.python_version is not None
 
 
-def test_async_memory():
+@pytest.mark.asyncio
+async def test_async_memory():
     austin = TestAsyncAustin()
 
     def sample_callback(data):
         austin._sample_received = True
 
     austin._sample_callback = sample_callback
-    asyncio.get_event_loop().run_until_complete(
-        austin.start(
-            [
-                "-t",
-                "10",
-                "-mCi",
-                "100",
-                "python",
-                "-c",
-                "[i for i in range(10000000)]",
-            ]
-        )
+    await austin.start(
+        [
+            "-t",
+            "10",
+            "-mCi",
+            "100",
+            "python",
+            "-c",
+            "[i for i in range(10000000)]",
+        ]
     )
+
     austin.assert_callbacks_called()
 
 
-def test_async_terminate():
+@pytest.mark.asyncio
+async def test_async_terminate():
     austin = TestAsyncAustin()
 
     def sample_callback(*args):
@@ -130,18 +131,15 @@ def test_async_terminate():
     austin._terminate_callback = terminate_callback
 
     try:
-        asyncio.get_event_loop().run_until_complete(
-            asyncio.wait_for(austin.start(["-t", "10", "-Ci", "10ms", "python"]), 30)
-        )
+        await asyncio.wait_for(austin.start(["-t", "10", "-Ci", "10ms", "python"]), 30)
     except AustinError:
         austin.assert_callbacks_called()
 
 
-def test_async_invalid_binary():
+@pytest.mark.asyncio
+async def test_async_invalid_binary():
     with raises(AustinError):
-        asyncio.get_event_loop().run_until_complete(
-            InvalidBinaryAsyncAustin(sample_callback=lambda x: None).start(["python"])
-        )
+        await InvalidBinaryAsyncAustin(sample_callback=lambda x: None).start(["python"])
 
 
 def test_async_no_sample_callback():
@@ -149,11 +147,10 @@ def test_async_no_sample_callback():
         InvalidBinaryAsyncAustin()
 
 
-def test_async_bad_options():
+@pytest.mark.asyncio
+async def test_async_bad_options():
     austin = TestAsyncAustin(terminate_callback=lambda *args: None)
     with raises(AustinError):
-        asyncio.get_event_loop().run_until_complete(
-            austin.start(
-                ["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"]
-            )
+        await austin.start(
+            ["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"]
         )

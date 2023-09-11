@@ -135,11 +135,18 @@ class MojoStack(MojoEvent):
     """MOJO stack."""
 
     pid: int
+    iid: int
     tid: str
 
     def to_austin(self) -> str:
         """Convert the event to Austin format."""
-        return f"P{self.pid};T{int(self.tid, 16)}"
+        try:
+            tid = int(self.tid, 16)
+        except ValueError:
+            tid = self.tid
+        return (
+            f"P{self.pid};T{self.iid}:{tid}" if self.iid >= 0 else f"P{self.pid};T{tid}"
+        )
 
 
 @dataclass(frozen=True, eq=True)
@@ -325,7 +332,9 @@ class MojoFile:
         yield from self._emit_metrics()
 
         self._pid = pid = self.read_int()
-        yield MojoStack(pid, self.read_string())
+        iid = self.read_int() if self.mojo_version >= 3 else -1
+
+        yield MojoStack(pid, iid, self.read_string())
 
     def _lookup_string(self) -> MojoString:
         n = self.read_int()

@@ -52,6 +52,7 @@ jobs:
         run: |
           cd $GITHUB_WORKSPACE/main
           export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
+          sleep 120 && sudo `which austin` -Cw `pgrep pytest | head -n 1` &
           hatch -e "tests.py${{ matrix.python-version }}" run tests -svv
   
       - name: Publish coverage metrics

@@ -1,7 +1,11 @@
 import typing as t
 from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 from io import BufferedReader
+
+from austin.stats import ProcessId
+from austin.stats import ThreadName
 
 
 __version__ = "0.1.0"
@@ -226,6 +230,21 @@ class MojoFullMetrics(MojoEvent):
 
 
 UNKNOWN = MojoString(1, "<unknown>")
+InterpreterId = int
+
+
+@dataclass
+class MojoSample:
+    """Austin sample."""
+
+    pid: ProcessId
+    iid: InterpreterId
+    thread: ThreadName
+    idle: bool = False
+    gc: bool = False
+    metrics: t.List[MojoMetric] = field(default_factory=list)
+    frames: t.List[MojoFrame] = field(default_factory=list)
+    metadata: t.Dict[str, str] = field(default_factory=dict)
 
 
 class MojoFile:
@@ -255,9 +274,12 @@ class MojoFile:
             raise ValueError("Not a MOJO file")
 
         self.mojo_version = self.read_int()
+        self.metadata: t.Dict[str, str] = {}
+        self.samples: t.List[MojoSample] = []
 
         self.header = bytes(self._last_bytes)
         self._last_bytes.clear()
+        self._last_sample: t.Optional[MojoSample] = None
 
     def ref(self, n: int) -> t.Tuple[int, int]:
         """Return a per-process reference key.
@@ -324,6 +346,12 @@ class MojoFile:
         metadata = MojoMetadata(self.read_string(), self.read_string())
         if metadata.key == "mode" and metadata.value == "full":
             self._full_mode = True
+
+        if self._last_sample is not None:
+            self._last_sample.metadata[metadata.key] = metadata.value
+        else:
+            self.metadata[metadata.key] = metadata.value
+
         yield metadata
 
     @handles(MojoEvents.STACK)
@@ -333,8 +361,12 @@ class MojoFile:
 
         self._pid = pid = self.read_int()
         iid = self.read_int() if self.mojo_version >= 3 else -1
+        thread = self.read_string()
 
-        yield MojoStack(pid, iid, self.read_string())
+        self._last_sample = sample = MojoSample(thread=thread, pid=pid, iid=iid)
+        self.samples.append(sample)
+
+        yield MojoStack(pid, iid, thread)
 
     def _lookup_string(self) -> MojoString:
         n = self.read_int()
@@ -369,7 +401,12 @@ class MojoFile:
     @handles(MojoEvents.FRAME_REF)
     def parse_frame_ref(self) -> t.Generator[MojoFrameReference, None, None]:
         """Parse a frame reference."""
-        yield MojoFrameReference(self._frame_map[self.ref(self.read_int())])
+        frame = self._frame_map[self.ref(self.read_int())]
+
+        assert self._last_sample is not None, self._last_sample
+        self._last_sample.frames.append(frame)
+
+        yield MojoFrameReference(frame)
 
     @handles(MojoEvents.FRAME_KERNEL)
     def parse_kernel_frame(self) -> t.Generator[MojoKernelFrame, None, None]:
@@ -385,6 +422,10 @@ class MojoFile:
         if self._full_mode:
             self._metrics.append(metric)
             return MojoEvent()
+
+        assert self._last_sample is not None, self._last_sample
+        self._last_sample.metrics.append(metric)
+        self._last_sample = None
 
         return metric
 
@@ -407,11 +448,18 @@ class MojoFile:
     def parse_idle(self) -> t.Generator[MojoIdle, None, None]:
         """Parse idle event."""
         self._metrics.append(1)
+
+        assert self._last_sample is not None, self._last_sample
+        self._last_sample.idle = True
+
         yield MojoIdle()
 
     @handles(MojoEvents.GC)
     def parse_gc(self) -> t.Generator[MojoSpecialFrame, None, None]:
         """Parse a GC event."""
+        assert self._last_sample is not None, self._last_sample
+        self._last_sample.gc = True
+
         yield MojoSpecialFrame("GC")
 
     @handles(MojoEvents.STRING)
@@ -460,6 +508,11 @@ class MojoFile:
                 if e is None:
                     return
                 yield e
+
+    def unwind(self) -> None:
+        """Read the MOJO file."""
+        for _ in self.parse():
+            pass
 
 
 def main() -> None:

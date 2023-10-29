@@ -77,8 +77,6 @@ async def test_async_time():
 
     await austin.start(
         [
-            "-t",
-            "10",
             "-Ci",
             "100",
             "python",
@@ -103,8 +101,6 @@ async def test_async_memory():
     austin._sample_callback = sample_callback
     await austin.start(
         [
-            "-t",
-            "10",
             "-mCi",
             "100",
             "python",
@@ -131,7 +127,7 @@ async def test_async_terminate():
     austin._terminate_callback = terminate_callback
 
     try:
-        await asyncio.wait_for(austin.start(["-t", "10", "-Ci", "10ms", "python"]), 30)
+        await asyncio.wait_for(austin.start(["-Ci", "10ms", "python"]), 30)
     except AustinError:
         austin.assert_callbacks_called()
 

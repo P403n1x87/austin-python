@@ -48,7 +48,7 @@ jobs:
           pip install hatch
 
       - name: Run tests
-        timeout-minutes: 30
+        timeout-minutes: 10
         run: |
           cd $GITHUB_WORKSPACE/main
           export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
@@ -102,7 +102,7 @@ jobs:
           pip install hatch
 
       - name: Run tests
-        timeout-minutes: 30
+        timeout-minutes: 10
         run: |
           cd $GITHUB_WORKSPACE/main
           export PATH="$GITHUB_WORKSPACE/austin/src:$PATH"
@@ -142,7 +142,7 @@ jobs:
           pip install hatch
 
       - name: Run tests
-        timeout-minutes: 30
+        timeout-minutes: 10
         run: |
           cd $env:GITHUB_WORKSPACE/main
           $env:PATH="$env:GITHUB_WORKSPACE\austin\src;$env:PATH"

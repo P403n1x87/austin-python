@@ -171,3 +171,20 @@ def test_mojo_column_info():
 def test_mojo_stack():
     assert MojoStack(1, -1, "noiid").to_austin() == "P1;Tnoiid"
     assert MojoStack(1, 2, "iid").to_austin() == "P1;T2:iid"
+
+
+def test_mojo_data():
+    input = (DATA / "test").with_suffix(".mojo")
+
+    with input.open("rb") as stream:
+        m = MojoFile(stream)
+        m.unwind()
+
+        assert m.metadata == {
+            "austin": "3.4.0",
+            "duration": "1038089",
+            "interval": "100",
+            "mode": "wall",
+        }
+
+        assert len(m.samples) == 13227

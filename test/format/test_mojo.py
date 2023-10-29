@@ -52,6 +52,10 @@ def test_mojo_snapshot(case):
 
     main()
 
+    if not expected.exists():
+        expected.write_text(output.read_text())
+        raise AssertionError("Expected file does not exist. Created it.")
+
     assert expected.read_text() == output.read_text()
 
 

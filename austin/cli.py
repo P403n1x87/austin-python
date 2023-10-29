@@ -28,6 +28,7 @@ from typing import Any
 from typing import Callable
 from typing import List
 from typing import NoReturn
+from typing import Optional
 
 from austin import AustinError
 
@@ -177,7 +178,7 @@ class AustinArgumentParser(ArgumentParser):
             )
 
     def parse_args(  # type: ignore[override]
-        self, args: List[str] = None, namespace: Namespace = None
+        self, args: Optional[List[str]] = None, namespace: Optional[Namespace] = None
     ) -> Namespace:
         """Parse the list of arguments.
 
@@ -196,7 +197,7 @@ class AustinArgumentParser(ArgumentParser):
 
         return parsed_austin_args
 
-    def exit(self, status: int = 0, message: str = None) -> NoReturn:
+    def exit(self, status: int = 0, message: Optional[str] = None) -> NoReturn:
         """Raise exception on error."""
         raise AustinCommandLineError(message, status)
 

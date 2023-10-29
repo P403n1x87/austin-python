@@ -92,13 +92,13 @@ class AsyncAustin(BaseAustin):
         self._meta.update(meta)
         return meta
 
-    async def start(self, args: List[str] = None) -> None:
+    async def start(self, args: Optional[List[str]] = None) -> None:
         """Create the start coroutine.
 
         Use with the ``asyncio`` event loop.
         """
         try:
-            _args = list(args or sys.argv[1:])
+            _args = list(args if args is not None else sys.argv[1:])  # Make a copy
             _args.insert(0, "-P")
             self.proc = await asyncio.create_subprocess_exec(
                 self.binary_path,

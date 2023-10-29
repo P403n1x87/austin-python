@@ -25,6 +25,7 @@ import subprocess
 import sys
 from typing import Dict
 from typing import List
+from typing import Optional
 
 from austin import AustinError
 from austin import BaseAustin
@@ -75,11 +76,13 @@ class SimpleAustin(BaseAustin):
 
         return meta
 
-    def start(self, args: List[str] = None) -> None:
+    def start(self, args: Optional[List[str]] = None) -> None:
         """Start the Austin process."""
         try:
             self.proc = subprocess.Popen(
-                [self.binary_path] + ["-P"] + (args or sys.argv[1:]),
+                [self.binary_path]
+                + ["-P"]
+                + (args if args is not None else sys.argv[1:]),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )

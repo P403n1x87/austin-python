@@ -141,7 +141,7 @@ class MojoStack(MojoEvent):
     def to_austin(self) -> str:
         """Convert the event to Austin format."""
         try:
-            tid = int(self.tid, 16)
+            tid = str(int(self.tid, 16))
         except ValueError:
             tid = self.tid
         return (

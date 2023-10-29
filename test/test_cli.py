@@ -86,7 +86,6 @@ def test_pid_only():
 
 
 def test_args_list():
-
     args = Bunch()
     args.alt_format = True
     args.children = True

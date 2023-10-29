@@ -110,9 +110,11 @@ class BaseAustin(ABC):
 
     def __init__(
         self,
-        sample_callback: Callable[[str], None] = None,
-        ready_callback: Callable[[psutil.Process, psutil.Process, str], None] = None,
-        terminate_callback: Callable[[Dict[str, str]], None] = None,
+        sample_callback: Optional[Callable[[str], None]] = None,
+        ready_callback: Optional[
+            Callable[[psutil.Process, psutil.Process, str], None]
+        ] = None,
+        terminate_callback: Optional[Callable[[Dict[str, str]], None]] = None,
     ) -> None:
         """The ``BaseAustin`` constructor.
 
@@ -166,7 +168,7 @@ class BaseAustin(ABC):
         return self._proc, self._child_proc, self._cmd_line
 
     @abstractmethod
-    def start(self, args: List[str] = None) -> Any:
+    def start(self, args: Optional[List[str]] = None) -> Any:
         """Start Austin.
 
         Every subclass should implement this method and ensure that it spawns

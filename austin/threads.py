@@ -67,7 +67,7 @@ class ThreadedAustin(SimpleAustin):
         self._thread: Optional[Thread] = None
         self._exc: Optional[Exception] = None
 
-    def start(self, args: List[str] = None) -> None:
+    def start(self, args: Optional[List[str]] = None) -> None:
         """Start the Austin thread."""
 
         def _thread_bootstrap() -> None:
@@ -90,7 +90,7 @@ class ThreadedAustin(SimpleAustin):
         """
         return self._thread
 
-    def join(self, timeout: float = None) -> None:
+    def join(self, timeout: Optional[float] = None) -> None:
         """Join the thread.
 
         This is the same as calling :func:`join` on the underlying thread

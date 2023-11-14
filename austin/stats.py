@@ -149,10 +149,10 @@ class Metric:
             ms = [int(_) for _ in metrics.split(",")]
             if len(ms) == 3:
                 return [
-                    Metric(MetricType.TIME, ms[0] if ms[1] == 0 else 0),
-                    Metric(MetricType.TIME, ms[0]),
-                    Metric(MetricType.MEMORY, ms[2] if ms[2] >= 0 else 0),
-                    Metric(MetricType.MEMORY, -ms[2] if ms[2] < 0 else 0),
+                    Metric(MetricType.TIME, ms[0] if ms[1] == 0 else 0),  # cpu time
+                    Metric(MetricType.TIME, ms[0]),  # wall time
+                    Metric(MetricType.MEMORY, ms[2] if ms[2] >= 0 else 0),  # memory allocation
+                    Metric(MetricType.MEMORY, -ms[2] if ms[2] < 0 else 0),  # memory deallocation
                 ]
             elif len(ms) != 1:
                 raise ValueError()
@@ -260,14 +260,13 @@ class Sample:
 
         try:
             ms = Metric.parse(metrics, metric_type)
+            frames = [Frame.parse(frame) for frame in frames.split(";")] if frames else []
             return [
                 Sample(
                     pid=int(pid),
                     thread=thread,
                     metric=metric,
-                    frames=[Frame.parse(frame) for frame in frames.split(";")]
-                    if frames
-                    else [],
+                    frames=frames,
                 )
                 for metric in ms
             ]

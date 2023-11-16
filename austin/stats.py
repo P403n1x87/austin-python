@@ -260,13 +260,13 @@ class Sample:
 
         try:
             ms = Metric.parse(metrics, metric_type)
-            frames = [Frame.parse(frame) for frame in frames.split(";")] if frames else []
+            frames_parsed = [Frame.parse(frame) for frame in frames.split(";")] if frames else []
             return [
                 Sample(
                     pid=int(pid),
                     thread=thread,
                     metric=metric,
-                    frames=frames,
+                    frames=frames_parsed,
                 )
                 for metric in ms
             ]

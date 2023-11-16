@@ -149,10 +149,14 @@ class Metric:
             ms = [int(_) for _ in metrics.split(",")]
             if len(ms) == 3:
                 return [
-                    Metric(MetricType.TIME, ms[0] if ms[1] == 0 else 0),  # cpu time
-                    Metric(MetricType.TIME, ms[0]),  # wall time
-                    Metric(MetricType.MEMORY, ms[2] if ms[2] >= 0 else 0),  # memory allocation
-                    Metric(MetricType.MEMORY, -ms[2] if ms[2] < 0 else 0),  # memory deallocation
+                    # CPU time
+                    Metric(MetricType.TIME, ms[0] if ms[1] == 0 else 0),
+                    # Wall time
+                    Metric(MetricType.TIME, ms[0]),
+                    # Memory allocation
+                    Metric(MetricType.MEMORY, ms[2] if ms[2] >= 0 else 0),
+                    # Memory deallocation
+                    Metric(MetricType.MEMORY, -ms[2] if ms[2] < 0 else 0),
                 ]
             elif len(ms) != 1:
                 raise ValueError()

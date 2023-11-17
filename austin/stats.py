@@ -45,7 +45,7 @@ from austin import AustinError
 ThreadName = str
 ProcessId = int
 MicroSeconds = int
-KiloBytes = int
+Bytes = int
 
 
 # ---- Exceptions ----
@@ -106,7 +106,7 @@ class Metric:
     """Austin metrics."""
 
     type: MetricType
-    value: Union[MicroSeconds, KiloBytes] = 0
+    value: Union[MicroSeconds, Bytes] = 0
 
     def __add__(self, other: "Metric") -> "Metric":
         """Add metrics together (algebraically)."""

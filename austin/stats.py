@@ -149,9 +149,13 @@ class Metric:
             ms = [int(_) for _ in metrics.split(",")]
             if len(ms) == 3:
                 return [
+                    # CPU time
                     Metric(MetricType.TIME, ms[0] if ms[1] == 0 else 0),
+                    # Wall time
                     Metric(MetricType.TIME, ms[0]),
+                    # Memory allocation
                     Metric(MetricType.MEMORY, ms[2] if ms[2] >= 0 else 0),
+                    # Memory deallocation
                     Metric(MetricType.MEMORY, -ms[2] if ms[2] < 0 else 0),
                 ]
             elif len(ms) != 1:
@@ -260,14 +264,15 @@ class Sample:
 
         try:
             ms = Metric.parse(metrics, metric_type)
+            frames_parsed = (
+                [Frame.parse(frame) for frame in frames.split(";")] if frames else []
+            )
             return [
                 Sample(
                     pid=int(pid),
                     thread=thread,
                     metric=metric,
-                    frames=[Frame.parse(frame) for frame in frames.split(";")]
-                    if frames
-                    else [],
+                    frames=frames_parsed,
                 )
                 for metric in ms
             ]

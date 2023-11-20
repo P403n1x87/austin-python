@@ -264,7 +264,9 @@ class Sample:
 
         try:
             ms = Metric.parse(metrics, metric_type)
-            frames_parsed = [Frame.parse(frame) for frame in frames.split(";")] if frames else []
+            frames_parsed = (
+                [Frame.parse(frame) for frame in frames.split(";")] if frames else []
+            )
             return [
                 Sample(
                     pid=int(pid),

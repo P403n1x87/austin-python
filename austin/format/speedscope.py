@@ -22,6 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import time
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
@@ -211,7 +212,12 @@ def main() -> None:
         with AustinFileReader(args.input) as fin:
             mode = fin.metadata["mode"]
             speedscope = Speedscope(os.path.basename(args.input), mode, args.indent)
+            print(f"Reading Austin samples from: {args.input} ...")
+            n_processed = 0
             for line in fin:
+                n_processed += 1
+                if n_processed % 10000 == 0:
+                    print(".", end="", flush=True)
                 try:
                     speedscope.add_samples(
                         Sample.parse(line, MetricType.from_mode(mode))
@@ -223,9 +229,12 @@ def main() -> None:
         print(f"No such input file: {args.input}")
         exit(1)
 
+    print(f"Writing Speedscope JSON to: {args.output} ...")
     with open(args.output, "w") as fout:
         speedscope.dump(fout)
 
 
 if __name__ == "__main__":
+    start_time = time.monotonic()
     main()
+    print("Conversion completed in %.1f seconds" % (time.monotonic() - start_time))

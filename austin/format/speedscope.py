@@ -211,19 +211,25 @@ def main() -> None:
     try:
         with AustinFileReader(args.input) as fin:
             mode = fin.metadata["mode"]
+            size_bytes = fin.file_size_bytes()
             speedscope = Speedscope(os.path.basename(args.input), mode, args.indent)
-            print(f"Reading Austin samples from: {args.input} ...")
-            n_processed = 0
+            print(f"Reading Austin samples from: {args.input} ({size_bytes / 1024 / 1024:,.1f} MB) ...")
+            lines_processed = 0
+            bytes_processed = 0
             for line in fin:
-                n_processed += 1
-                if n_processed % 10000 == 0:
-                    print(".", end="", flush=True)
+                lines_processed += 1
+                bytes_processed += len(line)
+                if lines_processed % 1000 == 0:
+                    # Show some progress because this can take a long time for huge traces
+                    progress = bytes_processed / size_bytes * 100.0
+                    print(f"{progress:.1f}%\r", end="", flush=True)
                 try:
                     speedscope.add_samples(
                         Sample.parse(line, MetricType.from_mode(mode))
                     )
                 except InvalidSample:
                     continue
+            print("")  # newline after the progress dots so that subsequent output is on its own line
 
     except FileNotFoundError:
         print(f"No such input file: {args.input}")

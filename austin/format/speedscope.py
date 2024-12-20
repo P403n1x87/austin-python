@@ -208,6 +208,7 @@ def main() -> None:
 
     args = arg_parser.parse_args()
 
+    start_time = time.monotonic()
     try:
         with AustinFileReader(args.input) as fin:
             mode = fin.metadata["mode"]
@@ -222,14 +223,14 @@ def main() -> None:
                 if lines_processed % 1000 == 0:
                     # Show some progress because this can take a long time for huge traces
                     progress = bytes_processed / size_bytes * 100.0
-                    print(f"{progress:.1f}%\r", end="", flush=True)
+                    print(f"\r{progress:.1f}%", end="", flush=True)
                 try:
                     speedscope.add_samples(
                         Sample.parse(line, MetricType.from_mode(mode))
                     )
                 except InvalidSample:
                     continue
-            print("")  # newline after the progress dots so that subsequent output is on its own line
+            print("")  # newline after progress so that subsequent output is on its own line
 
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
@@ -239,8 +240,8 @@ def main() -> None:
     with open(args.output, "w") as fout:
         speedscope.dump(fout)
 
+    print("Conversion complete - total duration: %s" % time.strftime('%Hh %Mm %Ss', time.gmtime(time.monotonic() - start_time)))
+
 
 if __name__ == "__main__":
-    start_time = time.monotonic()
     main()
-    print("Conversion completed in %.1f seconds" % (time.monotonic() - start_time))

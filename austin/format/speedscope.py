@@ -22,6 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
+import time
 from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
@@ -207,24 +208,46 @@ def main() -> None:
 
     args = arg_parser.parse_args()
 
+    start_time = time.monotonic()
     try:
         with AustinFileReader(args.input) as fin:
             mode = fin.metadata["mode"]
+            size_bytes = fin.file_size_bytes()
             speedscope = Speedscope(os.path.basename(args.input), mode, args.indent)
+            print(
+                f"Reading Austin samples from: {args.input} ({size_bytes / 1024 / 1024:,.1f} MB) ..."
+            )
+            lines_processed = 0
+            bytes_processed = 0
             for line in fin:
+                lines_processed += 1
+                bytes_processed += len(line)
+                if lines_processed % 1000 == 0:
+                    # Show some progress because this can take a long time for huge traces
+                    progress = bytes_processed / size_bytes * 100.0
+                    print(f"\r{progress:.1f}%", end="", flush=True)
                 try:
                     speedscope.add_samples(
                         Sample.parse(line, MetricType.from_mode(mode))
                     )
                 except InvalidSample:
                     continue
+            print(
+                ""
+            )  # newline after progress so that subsequent output is on its own line
 
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
         exit(1)
 
+    print(f"Writing Speedscope JSON to: {args.output} ...")
     with open(args.output, "w") as fout:
         speedscope.dump(fout)
+
+    print(
+        "Conversion complete - total duration: %s"
+        % time.strftime("%Hh %Mm %Ss", time.gmtime(time.monotonic() - start_time))
+    )
 
 
 if __name__ == "__main__":

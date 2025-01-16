@@ -22,6 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import dataclasses
+import os.path
 import re
 from copy import deepcopy
 from dataclasses import dataclass
@@ -415,6 +416,9 @@ class AustinFileReader:
             if not line.startswith("# ") or line == "\n":
                 break
             self.metadata.add(line)
+
+    def file_size_bytes(self) -> int:
+        return os.path.getsize(self.file)
 
     def __enter__(self) -> "AustinFileReader":
         """Open the Austin file and read the metadata."""

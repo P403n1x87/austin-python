@@ -333,9 +333,11 @@ class MojoFile:
     def _emit_metrics(self) -> t.Generator[t.Union[MojoEvent, int], None, None]:
         """Emit metrics."""
         if self._metrics:
-            yield MojoFullMetrics(
-                self._metrics
-            ) if self._full_mode else self._metrics.pop()
+            yield (
+                MojoFullMetrics(self._metrics)
+                if self._full_mode
+                else self._metrics.pop()
+            )
             self._metrics.clear()
 
     @handles(MojoEvents.METADATA)

@@ -214,7 +214,9 @@ def main() -> None:
             mode = fin.metadata["mode"]
             size_bytes = fin.file_size_bytes()
             speedscope = Speedscope(os.path.basename(args.input), mode, args.indent)
-            print(f"Reading Austin samples from: {args.input} ({size_bytes / 1024 / 1024:,.1f} MB) ...")
+            print(
+                f"Reading Austin samples from: {args.input} ({size_bytes / 1024 / 1024:,.1f} MB) ..."
+            )
             lines_processed = 0
             bytes_processed = 0
             for line in fin:
@@ -230,7 +232,9 @@ def main() -> None:
                     )
                 except InvalidSample:
                     continue
-            print("")  # newline after progress so that subsequent output is on its own line
+            print(
+                ""
+            )  # newline after progress so that subsequent output is on its own line
 
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
@@ -240,7 +244,10 @@ def main() -> None:
     with open(args.output, "w") as fout:
         speedscope.dump(fout)
 
-    print("Conversion complete - total duration: %s" % time.strftime('%Hh %Mm %Ss', time.gmtime(time.monotonic() - start_time)))
+    print(
+        "Conversion complete - total duration: %s"
+        % time.strftime("%Hh %Mm %Ss", time.gmtime(time.monotonic() - start_time))
+    )
 
 
 if __name__ == "__main__":

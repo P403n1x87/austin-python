@@ -1,12 +1,9 @@
 import typing as t
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from enum import Enum
 from io import BufferedReader
 
-from austin.stats import ProcessId
-from austin.stats import ThreadName
-
+from austin.stats import ProcessId, ThreadName
 
 __version__ = "0.1.0"
 
@@ -95,6 +92,10 @@ class MojoEvent:
     def to_austin(self) -> str:
         """Convert the event to Austin format."""
         return ""
+
+
+class MojoReferenceError(Exception):
+    pass
 
 
 @dataclass(frozen=True, eq=True)
@@ -226,7 +227,7 @@ class MojoFullMetrics(MojoEvent):
             time, memory = self.metrics
             idle = 0
 
-        return f" {t.cast(MojoMetric,time).value},{idle},{t.cast(MojoMetric, memory).value}\n"
+        return f" {t.cast(MojoMetric, time).value},{idle},{t.cast(MojoMetric, memory).value}\n"
 
 
 UNKNOWN = MojoString(1, "<unknown>")
@@ -333,9 +334,11 @@ class MojoFile:
     def _emit_metrics(self) -> t.Generator[t.Union[MojoEvent, int], None, None]:
         """Emit metrics."""
         if self._metrics:
-            yield MojoFullMetrics(
-                self._metrics
-            ) if self._full_mode else self._metrics.pop()
+            yield (
+                MojoFullMetrics(self._metrics)
+                if self._full_mode
+                else self._metrics.pop()
+            )
             self._metrics.clear()
 
     @handles(MojoEvents.METADATA)
@@ -373,7 +376,11 @@ class MojoFile:
         if n == 1:
             return UNKNOWN
 
-        return self._string_map[self.ref(n)]
+        try:
+            return self._string_map[self.ref(n)]
+        except KeyError:
+            msg = f"String reference {n} not found (offset: {self._offset}, last read: {self._last_read})"
+            raise MojoReferenceError(msg)
 
     @handles(MojoEvents.FRAME)
     def parse_frame(self) -> t.Generator[MojoFrame, None, None]:
@@ -394,14 +401,23 @@ class MojoFile:
             frame_key, filename, scope, line, line_end, column, column_end
         )
 
-        self._frame_map[self.ref(frame_key)] = frame
+        if (ref := self.ref(frame_key)) in self._frame_map:
+            msg = f"Frame reference collision: {frame} (offset: {self._offset}, last read: {self._last_read})"
+            raise MojoReferenceError(msg)
+
+        self._frame_map[ref] = frame
 
         yield frame
 
     @handles(MojoEvents.FRAME_REF)
     def parse_frame_ref(self) -> t.Generator[MojoFrameReference, None, None]:
         """Parse a frame reference."""
-        frame = self._frame_map[self.ref(self.read_int())]
+        try:
+            frame = self._frame_map[self.ref(self.read_int())]
+        except KeyError:
+            raise MojoReferenceError(
+                f"Frame reference {self.read_int()} not found (offset: {self._offset}, last read: {self._last_read})"
+            )
 
         assert self._last_sample is not None, self._last_sample
         self._last_sample.frames.append(frame)
@@ -470,7 +486,11 @@ class MojoFile:
 
         string = MojoString(key, value)
 
-        self._string_map[self.ref(key)] = string
+        if (ref := self.ref(key)) in self._string_map:
+            msg = f"String reference collision: {string} (offset: {self._offset}, last read: {self._last_read})"
+            raise MojoReferenceError(msg)
+
+        self._string_map[ref] = string
 
         yield string
 
@@ -478,7 +498,11 @@ class MojoFile:
     def parse_string_ref(self) -> t.Generator[MojoStringReference, None, None]:
         """Parse string reference."""
         assert self._pid, self._pid
-        yield MojoStringReference(self._string_map[self.ref(self.read_int())])
+        try:
+            yield MojoStringReference(self._string_map[self.ref(self.read_int())])
+        except KeyError:
+            msg = f"String reference {self.read_int()} not found (offset: {self._offset}, last read: {self._last_read})"
+            raise MojoReferenceError(msg)
 
     def parse_event(self) -> t.Generator[t.Optional[MojoEvent], None, None]:
         """Parse a single event."""
@@ -489,14 +513,16 @@ class MojoFile:
             return
 
         try:
-            for event in t.cast(dict, self.__handlers__)[event_id](self):
-                object.__setattr__(event, "raw", bytes(self._last_bytes))
-                self._last_bytes.clear()
-                yield event
+            handler = t.cast(dict, self.__handlers__)[event_id]
         except KeyError as exc:
             raise ValueError(
                 f"Unhandled event: {event_id} (offset: {self._offset}, last read: {self._last_read})"
             ) from exc
+
+        for event in handler(self):
+            object.__setattr__(event, "raw", bytes(self._last_bytes))
+            self._last_bytes.clear()
+            yield event
 
     def parse(self) -> t.Iterator[MojoEvent]:
         """Parse the MOJO file.

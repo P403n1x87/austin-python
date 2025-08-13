@@ -38,6 +38,12 @@ def to_varint(n: int) -> bytes:
     return bytes(result)
 
 
+class MojoParseError(Exception):
+    """MOJO parse error."""
+
+    pass
+
+
 class MojoEvents:
     """MOJO events."""
 
@@ -226,7 +232,7 @@ class MojoFullMetrics(MojoEvent):
             time, memory = self.metrics
             idle = 0
 
-        return f" {t.cast(MojoMetric,time).value},{idle},{t.cast(MojoMetric, memory).value}\n"
+        return f" {t.cast(MojoMetric, time).value},{idle},{t.cast(MojoMetric, memory).value}\n"
 
 
 UNKNOWN = MojoString(1, "<unknown>")
@@ -333,9 +339,11 @@ class MojoFile:
     def _emit_metrics(self) -> t.Generator[t.Union[MojoEvent, int], None, None]:
         """Emit metrics."""
         if self._metrics:
-            yield MojoFullMetrics(
-                self._metrics
-            ) if self._full_mode else self._metrics.pop()
+            yield (
+                MojoFullMetrics(self._metrics)
+                if self._full_mode
+                else self._metrics.pop()
+            )
             self._metrics.clear()
 
     @handles(MojoEvents.METADATA)
@@ -497,6 +505,9 @@ class MojoFile:
             raise ValueError(
                 f"Unhandled event: {event_id} (offset: {self._offset}, last read: {self._last_read})"
             ) from exc
+        except Exception as exc:
+            msg = f"Invalid byte sequence at offset {self._offset} (last read: {self._last_read})"
+            raise MojoParseError(msg) from exc
 
     def parse(self) -> t.Iterator[MojoEvent]:
         """Parse the MOJO file.
@@ -513,6 +524,22 @@ class MojoFile:
         """Read the MOJO file."""
         for _ in self.parse():
             pass
+
+    def hexdump(self, start: int, end: int, highlight: t.Set[int] = set()) -> None:
+        """Print a hexdump of the MOJO file."""
+        self.mojo.seek(start)
+        data = self.mojo.read(end - start)
+        print(f"Hexdump from {start} ({start:02x}) to {end} ({end:02x}):")
+        print("Offset  :", " ".join(f"{i:02x}" for i in range(16)), "| ASCII")
+        print("--------", "-" * 48, "|", "-" * 16)
+        for i in range(0, len(data), 16):
+            # highlight the bytes at the given offset with bold yellow using ANSI escape codes
+            line = " ".join(
+                f"\033[1;33m{b:02x}\033[0m" if o in highlight else f"{b:02x}"
+                for o, b in enumerate(data[i : i + 16], start + i)
+            )
+            rep = "".join(chr(b) if 32 <= b < 127 else "." for b in data[i : i + 16])
+            print(f"{start + i:08x}: {line} | {rep}")
 
 
 def main() -> None:

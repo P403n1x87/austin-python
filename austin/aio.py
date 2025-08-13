@@ -23,7 +23,6 @@
 
 import asyncio
 import sys
-from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -77,7 +76,7 @@ class AsyncAustin(BaseAustin):
         except asyncio.TimeoutError:
             return None
 
-    async def _read_meta(self) -> Dict[str, str]:
+    async def _read_meta(self) -> None:
         assert self.proc.stdout is not None
 
         meta = {}
@@ -90,7 +89,6 @@ class AsyncAustin(BaseAustin):
             meta[key] = value
 
         self._meta.update(meta)
-        return meta
 
     async def start(self, args: Optional[List[str]] = None) -> None:
         """Create the start coroutine.
@@ -118,7 +116,8 @@ class AsyncAustin(BaseAustin):
         self._running = True
 
         try:
-            if not await self._read_meta():
+            await self._read_meta()
+            if not self._meta:
                 raise AustinError("Austin did not start properly")
 
             self.check_version()
@@ -131,13 +130,18 @@ class AsyncAustin(BaseAustin):
 
             # Start readline loop
             while self._running:
-                data = (await self.proc.stdout.readline()).rstrip()
-                if not data:
+                if not (data := await self.proc.stdout.readline()):
+                    break
+                data = data.rstrip()
+                if data.startswith(b"# "):
+                    key, _, value = data[2:].partition(b": ")
+                    self._meta[key.decode()] = value.decode()
                     break
 
                 self.submit_sample(data)
 
-            self._terminate_callback(await self._read_meta())
+            await self._read_meta()
+            self._terminate_callback(self._meta)
             self.check_exit(await self.proc.wait(), await self._read_stderr())
 
         except Exception:

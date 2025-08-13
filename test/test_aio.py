@@ -30,7 +30,6 @@ from pytest import raises
 from austin import AustinError
 from austin.aio import AsyncAustin
 
-
 if sys.platform == "win32":
     loop = asyncio.ProactorEventLoop()
     asyncio.set_event_loop(loop)

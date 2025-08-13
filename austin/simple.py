@@ -23,7 +23,6 @@
 
 import subprocess
 import sys
-from typing import Dict
 from typing import List
 from typing import Optional
 
@@ -60,7 +59,7 @@ class SimpleAustin(BaseAustin):
             pass
     """
 
-    def _read_meta(self) -> Dict[str, str]:
+    def _read_meta(self) -> None:
         assert self.proc.stdout
 
         meta = {}
@@ -73,8 +72,6 @@ class SimpleAustin(BaseAustin):
             meta[key] = value
 
         self._meta.update(meta)
-
-        return meta
 
     def start(self, args: Optional[List[str]] = None) -> None:
         """Start the Austin process."""
@@ -95,7 +92,8 @@ class SimpleAustin(BaseAustin):
             raise AustinError("Standard error stream is unexpectedly missing")
 
         try:
-            if not self._read_meta():
+            self._read_meta()
+            if not self._meta:
                 raise AustinError("Austin did not start properly")
 
             self.check_version()
@@ -110,10 +108,16 @@ class SimpleAustin(BaseAustin):
                 data = self.proc.stdout.readline().rstrip()
                 if not data:
                     break
+                if data.startswith(b"# "):
+                    key, _, value = data[2:].partition(b": ")
+                    self._meta[key.decode()] = value.decode()
+                    break
 
                 self.submit_sample(data)
 
-            self._terminate_callback(self._read_meta())
+            self._read_meta()
+            self._terminate_callback(self._meta)
+
             try:
                 stderr = self.proc.communicate(timeout=1)[1].decode().rstrip()
             except subprocess.TimeoutExpired:

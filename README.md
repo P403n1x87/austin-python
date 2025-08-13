@@ -160,7 +160,7 @@ raw samples by aggregation.
 # Compatibility
 
 The latest `austin-python` package is tested on Linux, macOS and Windows with
-Python 3.8-3.12.
+Python 3.9-3.13.
 
 
 # Documentation

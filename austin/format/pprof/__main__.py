@@ -23,11 +23,10 @@
 
 from argparse import ArgumentParser
 
+from austin.events import AustinMetadata
+from austin.events import AustinSample
+from austin.format.collapsed_stack import AustinFileReader
 from austin.format.pprof import PProf
-from austin.stats import AustinFileReader
-from austin.stats import InvalidSample
-from austin.stats import MetricType
-from austin.stats import Sample
 
 
 def main() -> None:
@@ -49,21 +48,26 @@ def main() -> None:
         "output", type=str, help="The name of the output pprof file."
     )
 
-    arg_parser.add_argument("-V", "--version", action="version", version="0.1.0")
+    arg_parser.add_argument("-V", "--version", action="version", version="0.2.0")
 
     args = arg_parser.parse_args()
 
     try:
         with AustinFileReader(args.input) as fin:
-            mode = fin.metadata["mode"]
-            pprof = PProf(mode=mode)
+            pprof = None
+            for e in fin:
+                if isinstance(e, AustinMetadata) and e.name == "mode":
+                    pprof = PProf(mode=e.value)
+                    break
+            else:
+                raise RuntimeError("No mode metadata found in input file")
+
+            assert pprof is not None
 
             # Read samples
-            for line in fin:
-                try:
-                    pprof.add_samples(Sample.parse(line, MetricType.from_mode(mode)))
-                except InvalidSample:
-                    continue
+            for e in fin:
+                if isinstance(e, AustinSample):
+                    pprof.add_sample(e)
 
     except FileNotFoundError:
         print(f"No such input file: {args.input}")

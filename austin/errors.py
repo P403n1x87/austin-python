@@ -21,33 +21,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from pytest import raises
 
-from austin.stats import Frame
-from austin.stats import InvalidFrame
+class AustinError(Exception):
+    """Basic Austin Error."""
 
-
-def test_frame_parser_valid():
-    assert Frame.parse("/tmp/bar.py:foo:10") == Frame("foo", "/tmp/bar.py", 10)
-    assert Frame.parse("<module>:foo:42") == Frame("foo", "<module>", 42)
-
-
-def test_frame_parser_invalid():
-    with raises(InvalidFrame):  # Completely bonkers
-        Frame.parse("snafu")
-
-    with raises(InvalidFrame):  # Empty
-        Frame.parse("")
-
-    with raises(InvalidFrame):
-        Frame.parse("foo (<module>:bar)")  # Invalid line number
-
-
-def test_frame_str():
-    assert str(Frame("foo", "foo_module", 10)) == "foo_module:foo:10"
-
-
-def test_frame_win_drive():
-    assert Frame.parse("C:\\user\\bar.py:foo:42") == Frame(
-        "foo", "C:\\user\\bar.py", 42
-    )
+    pass

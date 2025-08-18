@@ -21,12 +21,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+import typing as t
 from threading import Thread
-from typing import Any
-from typing import List
-from typing import Optional
 
-from austin import AustinError
+from austin.errors import AustinError
 from austin.simple import SimpleAustin
 
 
@@ -41,56 +39,48 @@ class ThreadedAustin(SimpleAustin):
 
     Example::
 
-        class EchoThreadedAustin(ThreadedAustin):
-            def on_ready(self, process, child_process, command_line):
-                print(f"Austin PID: {process.pid}")
-                print(f"Python PID: {child_process.pid}")
-                print(f"Command Line: {command_line}")
+        from austin.events import AustinMetadata, AustinSample
+        from austin.format.collapsed_stack import AustinEventCollapsedStackFormatter
+        from austin.threads import ThreadedAustin
 
-            def on_sample_received(self, line):
-                print(line)
+        FORMATTER = AustinEventCollapsedStackFormatter()
 
-            def on_terminate(self, data):
-                print(data)
 
-        try:
-            austin = EchoThreadedAustin()
-            austin.start(["-i", "10000", "python3", "myscript.py"])
-            austin.join()
-        except KeyboardInterrupt:
-            pass
+        class CollapsedStackThreadedAustin(ThreadedAustin):
+            def on_metadata(self, metadata: AustinMetadata) -> None:
+                print(FORMATTER.format(metadata))
+
+            def on_sample(self, sample: AustinSample) -> None:
+                print(FORMATTER.format(sample))
+
+
+        austin = CollapsedStackThreadedAustin()
+        austin.start(["-i", "10ms", "python3", "myscript.py"])
+        austin.wait()
     """
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
 
-        self._thread: Optional[Thread] = None
-        self._exc: Optional[Exception] = None
+        self._thread: t.Optional[Thread] = None
+        self._exc: t.Optional[Exception] = None
+        self._exit_code: t.Optional[int] = None
 
-    def start(self, args: Optional[List[str]] = None) -> None:
+    def start(self, args: t.Optional[t.Sequence[str]] = None) -> None:
         """Start the Austin thread."""
 
-        def _thread_bootstrap() -> None:
+        def _thread_bootstrap(self: ThreadedAustin) -> None:
             try:
-                SimpleAustin.start(self, args)
+                super().start(args)
+                self._exit_code = super().wait()
+
             except Exception as e:
                 self._exc = e
 
-        self._thread = Thread(target=_thread_bootstrap)
+        self._thread = Thread(target=_thread_bootstrap, args=(self,))
         self._thread.start()
 
-    def get_thread(self) -> Optional[Thread]:
-        """Get the underlying :class:`threading.Thread` instance.
-
-        As this leaks a bit of the implementation, interaction with the
-        returned thread object should be done with care.
-
-        **Note**
-            This is an extension of the base Austin abstract class.
-        """
-        return self._thread
-
-    def join(self, timeout: Optional[float] = None) -> None:
+    def join(self, timeout: t.Optional[float] = None) -> None:
         """Join the thread.
 
         This is the same as calling :func:`join` on the underlying thread
@@ -104,3 +94,17 @@ class ThreadedAustin(SimpleAustin):
         self._thread.join(timeout)
         if self._exc:
             raise self._exc
+
+    def wait(self) -> int:
+        """Wait for the Austin thread to finish and return the exit code."""
+        if self._thread is None:
+            raise AustinError("Austin thread has not been started yet")
+
+        self.join()
+
+        if self._exc:
+            raise self._exc
+
+        assert self._exit_code is not None
+
+        return self._exit_code

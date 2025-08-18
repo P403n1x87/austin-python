@@ -22,15 +22,15 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import io
 from dataclasses import fields
+from pathlib import Path
 
-from austin.format import Mode
+from austin.events import AustinMetadata
+from austin.events import AustinSample
+from austin.format.collapsed_stack import AustinFileReader
+from austin.format.collapsed_stack import parse_collapsed_stack
 from austin.format.speedscope import Speedscope
 from austin.format.speedscope import SpeedscopeFrame
 from austin.format.speedscope import SpeedscopeProfile
-from austin.stats import AustinFileReader
-from austin.stats import InvalidSample
-from austin.stats import MetricType
-from austin.stats import Sample
 
 
 _SPEEDSCOPE_FILE_FIELDS = ("$schema", "shared", "profiles", "name", "exporter")
@@ -48,7 +48,7 @@ def test_speedscope_full_metrics_idle():
         "P42;T123;foo_module.py:foo:10 10,1,-30",
         "P42;T123;foo_module.py:foo:10 10,1,20",
     ]:
-        speedscope.add_samples(Sample.parse(sample))
+        speedscope.add_sample(parse_collapsed_stack(sample))
 
     speedscope_data = speedscope.asdict()
     for file_field in _SPEEDSCOPE_FILE_FIELDS:
@@ -146,7 +146,7 @@ def test_speedscope_full_metrics():
         "P42;T123;foo_module.py:foo:10 10,0,-30",
         "P42;T123;foo_module.py:foo:10 10,1,20",
     ]:
-        speedscope.add_samples(Sample.parse(sample))
+        speedscope.add_sample(parse_collapsed_stack(sample))
 
     speedscope_data = speedscope.asdict()
     for file_field in _SPEEDSCOPE_FILE_FIELDS:
@@ -212,18 +212,20 @@ def test_speedscope_full_metrics():
     assert sprofile_list[3]["weights"] == [20]
 
 
-def test_speedscope_wall_metrics_only(datapath):
-    with AustinFileReader(datapath / "austin.out") as austin:
-        mode = austin.metadata["mode"]
-        assert Mode.from_metadata(mode) == Mode.WALL
+def test_speedscope_wall_metrics_only(datapath: Path):
+    speedscope = None
+    with AustinFileReader((datapath / "austin.out").open()) as austin:
+        for e in austin:
+            if isinstance(e, AustinMetadata) and e.name == "mode":
+                speedscope = Speedscope("austin.out", e.value, indent=2)
+                break
+        else:
+            raise RuntimeError("No mode metadata found in Austin file")
 
-        speedscope = Speedscope("austin.out", mode, indent=2)
-
-        for line in austin:
-            try:
-                speedscope.add_samples(Sample.parse(line, MetricType.from_mode(mode)))
-            except InvalidSample:
+        for e in austin:
+            if not isinstance(e, AustinSample):
                 continue
+            speedscope.add_sample(e)
 
         text_stream = io.StringIO()
         speedscope.dump(text_stream)

@@ -24,19 +24,42 @@
 from argparse import REMAINDER
 from argparse import ArgumentParser
 from argparse import Namespace
+from dataclasses import dataclass
 from typing import Any
 from typing import Callable
 from typing import List
 from typing import NoReturn
 from typing import Optional
+from typing import Sequence
+from typing import cast
 
-from austin import AustinError
+from austin.errors import AustinError
 
 
 class AustinCommandLineError(AustinError):
     """Invalid Austin command line."""
 
     pass
+
+
+@dataclass
+class AustinArguments(Namespace):
+    """Austin command line arguments.
+
+    This class is used to store the parsed command line arguments for Austin.
+    It extends :class:`argparse.Namespace` to provide a structured way to
+    access the command line options.
+    """
+
+    pid: Optional[int]
+    command: Optional[List[str]]
+    children: bool
+    exposure: Optional[int]
+    full: bool
+    interval: Optional[int]
+    memory: bool
+    cpu: bool
+    timeout: Optional[int]
 
 
 class AustinArgumentParser(ArgumentParser):
@@ -56,15 +79,13 @@ class AustinArgumentParser(ArgumentParser):
     def __init__(
         self,
         name: str = "austin",
-        alt_format: bool = True,
         children: bool = True,
-        exclude_empty: bool = True,
         exposure: bool = True,
         full: bool = True,
         interval: bool = True,
         memory: bool = True,
         pid: bool = True,
-        sleepless: bool = True,
+        cpu: bool = True,
         timeout: bool = True,
         command: bool = True,
         **kwargs: Any,
@@ -92,27 +113,11 @@ class AustinArgumentParser(ArgumentParser):
                 "and command."
             )
 
-        if alt_format:
-            self.add_argument(
-                "-a",
-                "--alt-format",
-                help="Alternative collapsed stack sample format.",
-                action="store_true",
-            )
-
         if children:
             self.add_argument(
                 "-C",
                 "--children",
                 help="Attach to child processes.",
-                action="store_true",
-            )
-
-        if exclude_empty:
-            self.add_argument(
-                "-e",
-                "--exclude-empty",
-                help="Do not output samples of threads with no frame stacks.",
                 action="store_true",
             )
 
@@ -154,9 +159,9 @@ class AustinArgumentParser(ArgumentParser):
                 type=int,
             )
 
-        if sleepless:
+        if cpu:
             self.add_argument(
-                "-s", "--sleepless", help="Suppress idle samples.", action="store_true"
+                "-c", "--cpu", help="Capture on-CPU stacks only.", action="store_true"
             )
 
         if timeout:
@@ -178,11 +183,13 @@ class AustinArgumentParser(ArgumentParser):
             )
 
     def parse_args(  # type: ignore[override]
-        self, args: Optional[List[str]] = None, namespace: Optional[Namespace] = None
-    ) -> Namespace:
+        self,
+        args: Optional[Sequence[str]] = None,
+        namespace: Optional[Namespace] = None,
+    ) -> AustinArguments:
         """Parse the list of arguments.
 
-        Return a :class:`argparse.Namespace` with the parsed result. If no PID
+        Return a :class:`AustinArguments` with the parsed result. If no PID
         nor a command are passed, an instance of the
         :class:`AustinCommandLineError` exception is thrown.
         """
@@ -195,7 +202,7 @@ class AustinArgumentParser(ArgumentParser):
         if not parsed_austin_args.pid and not parsed_austin_args.command:
             raise AustinCommandLineError("No PID or command given.")
 
-        return parsed_austin_args
+        return cast(AustinArguments, parsed_austin_args)
 
     def exit(self, status: int = 0, message: Optional[str] = None) -> NoReturn:
         """Raise exception on error."""
@@ -211,12 +218,8 @@ class AustinArgumentParser(ArgumentParser):
         process.
         """
         arg_list = []
-        if getattr(args, "alt_format", None):
-            arg_list.append("-a")
         if getattr(args, "children", None):
             arg_list.append("-C")
-        if getattr(args, "exclude_empty", None):
-            arg_list.append("-e")
         if getattr(args, "full", None):
             arg_list.append("-f")
         if getattr(args, "interval", None):
@@ -225,8 +228,8 @@ class AustinArgumentParser(ArgumentParser):
             arg_list.append("-m")
         if getattr(args, "pid", None):
             arg_list += ["-p", str(args.pid)]
-        if getattr(args, "sleepless", None):
-            arg_list.append("-s")
+        if getattr(args, "cpu", None):
+            arg_list.append("-c")
         if getattr(args, "timeout", None):
             arg_list += ["-t", str(args.timeout)]
         if getattr(args, "command", None):

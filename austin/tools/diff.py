@@ -29,14 +29,11 @@ from typing import Set
 from typing import TextIO
 from typing import Tuple
 
+from austin.events import AustinFrame
 from austin.format.compress import compress
-from austin.stats import Frame
-from austin.stats import InvalidSample
-from austin.stats import Metric
-from austin.stats import Sample
 
 
-FoldedStack = List[Frame]
+FoldedStack = List[AustinFrame]
 
 
 def _similarities(

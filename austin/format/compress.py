@@ -24,7 +24,11 @@
 from typing import Dict
 from typing import TextIO
 
-from austin.stats import AustinFileReader
+from austin.events import AustinMetadata
+from austin.events import AustinMetrics
+from austin.events import AustinSample
+from austin.format.collapsed_stack import AustinEventCollapsedStackFormatter
+from austin.format.collapsed_stack import AustinFileReader
 
 
 def compress(source: AustinFileReader, dest: TextIO, counts: bool = False) -> None:
@@ -34,20 +38,38 @@ def compress(source: AustinFileReader, dest: TextIO, counts: bool = False) -> No
     then time samples are counted by occurrence rather than by sampling
     duration.
     """
-    stats: Dict[str, int] = {}
+    stats: Dict[AustinSample.Key, int] = {}
+    metadata = []
 
-    for line in source:
-        head, _, metric = line.rpartition(" ")
-        if "," in metric:
-            raise RuntimeError("Cannot compress samples with full metrics.")
+    for event in source:
+        if isinstance(event, AustinMetadata):
+            metadata.append(event)
+            continue
 
-        value = 1 if counts else int(metric)
-        if metric:
-            stats[head] = stats.get(head, 0) + value
+        assert isinstance(event, AustinSample)
 
-    dest.writelines([f"# {k}: {v}\n" for k, v in source.metadata.items()])
-    dest.write("\n")
-    dest.writelines([head + " " + str(metric) + "\n" for head, metric in stats.items()])
+        value = 1 if counts else int(event.metrics.time or event.metrics.memory or 0)
+        sample_key = event.key()
+        stats[sample_key] = stats.get(sample_key, 0) + value
+
+    mode = source.metadata["mode"]
+    is_memory = mode == "memory"
+
+    formatter = AustinEventCollapsedStackFormatter(mode=mode)
+
+    dest.writelines(f"# {m.name}: {m.value}\n" for m in metadata)
+    dest.writelines(
+        formatter.format(
+            AustinSample.from_key_and_metrics(
+                key,
+                AustinMetrics(memory=metrics)
+                if is_memory
+                else AustinMetrics(time=metrics),
+            )
+        )
+        + "\n"
+        for key, metrics in stats.items()
+    )
 
 
 def main() -> None:
@@ -80,14 +102,15 @@ def main() -> None:
         help="Use sample counts instead of measured sampling durations.",
     )
 
-    arg_parser.add_argument("-V", "--version", action="version", version="0.2.0")
+    arg_parser.add_argument("-V", "--version", action="version", version="0.3.0")
 
     args = arg_parser.parse_args()
 
     try:
-        with AustinFileReader(args.input) as fin, open(
-            args.output or args.input, "w"
-        ) as fout:
+        with (
+            AustinFileReader(args.input) as fin,
+            open(args.output or args.input, "w") as fout,
+        ):
             compress(fin, fout, args.counts)
     except FileNotFoundError:
         print(f"No such input file: {args.input}")

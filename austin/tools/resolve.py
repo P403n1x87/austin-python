@@ -24,14 +24,14 @@
 import typing as t
 from subprocess import check_output
 
-from austin.format.mojo import MojoFile
 from austin.format.mojo import MojoFrame
 from austin.format.mojo import MojoMetadata
+from austin.format.mojo import MojoStreamReader
 from austin.format.mojo import MojoString
 from austin.format.mojo import to_varint
 
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 
 def demangle_cython(function: str) -> str:
@@ -86,7 +86,9 @@ class Maps:
             return None
 
         resolved, _, _ = (
-            check_output(["addr2line", "-Ce", _binary, f"{addr-self.bases[_binary]:x}"])
+            check_output(
+                ["addr2line", "-Ce", _binary, f"{addr - self.bases[_binary]:x}"]
+            )
             .decode()
             .strip()
             .partition(" ")
@@ -158,7 +160,7 @@ class Maps:
 def resolve_mojo(input: str, output: str) -> None:
     maps = Maps()
     with open(input, "rb") as mojo, open(output, "wb") as fout:
-        mojo_file = MojoFile(mojo)  # Fails if not a MOJO file
+        mojo_file = MojoStreamReader(mojo)  # Fails if not a MOJO file
 
         # Write the MOJO header
         fout.write(mojo_file.header)
@@ -166,7 +168,7 @@ def resolve_mojo(input: str, output: str) -> None:
         # Echo events and intercepts strings that need to be resolved
         for event in mojo_file.parse():
             if isinstance(event, MojoMetadata) and event.key == "map":
-                maps.add(event.to_austin())
+                maps.add(event.value)
 
             elif isinstance(event, MojoString):
                 resolved = maps.resolve_string(event)
@@ -182,25 +184,13 @@ def resolve_mojo(input: str, output: str) -> None:
                         maps.lines[event.key] = to_varint(line)
 
             elif isinstance(event, MojoFrame):
-                if event.filename.string.key in maps.lines:
+                if event.filename.key in maps.lines:
                     event.raw = (
                         event.raw[: -len(to_varint(event.line))]
-                        + maps.lines[event.filename.string.key]
+                        + maps.lines[event.filename.key]
                     )
 
             fout.write(event.raw)
-
-
-def resolve_austin(input: str, output: str) -> None:
-    maps = Maps()
-    with open(input) as fin, open(output, "w") as fout:
-        for line in fin:
-            if line.startswith("# map: "):
-                maps.add(line)
-            elif line.startswith("# ") or line == "\n":
-                print(line, end="", file=fout)
-            else:
-                print(maps.resolve(line), file=fout)
 
 
 def main() -> None:
@@ -225,10 +215,7 @@ def main() -> None:
     args = arg_parser.parse_args()
 
     try:
-        try:
-            resolve_mojo(args.input, args.output)
-        except Exception:
-            resolve_austin(args.input, args.output)
+        resolve_mojo(args.input, args.output)
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
         exit(1)

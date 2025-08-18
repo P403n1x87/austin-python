@@ -27,14 +27,14 @@ from pathlib import Path
 from traceback import print_exc
 
 from austin.format.mojo import MojoEvent
-from austin.format.mojo import MojoFile
+from austin.format.mojo import MojoStreamReader
 
 
 __version__ = "0.1.0"
 
 
 def mojodbg(args: t.Any) -> None:
-    mojo = MojoFile(args.input.expanduser().open("rb"))
+    mojo = MojoStreamReader(args.input.expanduser().open("rb"))
     offset = 4
     last_event_data: t.Tuple[t.Optional[MojoEvent], int] = (None, 0)
     try:

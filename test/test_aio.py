@@ -23,12 +23,16 @@
 
 import asyncio
 import sys
+from pathlib import Path
 
 import pytest
 from pytest import raises
 
-from austin import AustinError
 from austin.aio import AsyncAustin
+from austin.errors import AustinError
+from austin.events import AustinMetadata
+from austin.events import AustinSample
+
 
 if sys.platform == "win32":
     loop = asyncio.ProactorEventLoop()
@@ -40,20 +44,20 @@ class TestAsyncAustin(AsyncAustin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._ready = False
+        self._metadata = False
         self._sample_received = False
         self._terminate = False
 
-    def on_ready(self, process, child_process, command_line):
-        assert process.pid != child_process.pid
-        assert "python" in self.get_command_line().lower()
-        self._ready = True
-
-    def on_sample_received(self, line):
-        assert line
+    async def on_sample(self, sample: AustinSample) -> None:
+        assert sample
         self._sample_received = True
 
-    def on_terminate(self, data):
+    async def on_metadata(self, metadata: AustinMetadata) -> None:
+        assert metadata
+        self._metadata = True
+
+    async def on_terminate(self):
+        data = self._meta
         assert "duration" in data
         assert "errors" in data
         assert "sampling" in data
@@ -61,13 +65,13 @@ class TestAsyncAustin(AsyncAustin):
         self._terminate = True
 
     def assert_callbacks_called(self):
-        assert self._ready
+        assert self._metadata
         assert self._sample_received
         assert self._terminate
 
 
 class InvalidBinaryAsyncAustin(AsyncAustin):
-    BINARY = "_austin"
+    BINARY = Path("_austin")
 
 
 @pytest.mark.asyncio
@@ -83,6 +87,7 @@ async def test_async_time():
             "from time import sleep; sleep(2)",
         ]
     )
+    await asyncio.wait_for(austin.wait(), 30)
 
     austin.assert_callbacks_called()
 
@@ -94,7 +99,7 @@ async def test_async_time():
 async def test_async_memory():
     austin = TestAsyncAustin()
 
-    def sample_callback(data):
+    async def sample_callback(data):
         austin._sample_received = True
 
     austin._sample_callback = sample_callback
@@ -107,28 +112,34 @@ async def test_async_memory():
             "[i for i in range(10000000)]",
         ]
     )
+    await asyncio.wait_for(austin.wait(), 30)
 
     austin.assert_callbacks_called()
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Signal handling not supported on Windows"
+)
 @pytest.mark.asyncio
 async def test_async_terminate():
     austin = TestAsyncAustin()
 
-    def sample_callback(*args):
+    async def sample_callback(sample):
+        assert sample
+        if not austin._sample_received:
+            austin.terminate()
         austin._sample_received = True
-        austin.terminate()
 
-    def terminate_callback(*args):
+    async def terminate_callback():
         austin._terminate = True
 
     austin._sample_callback = sample_callback
     austin._terminate_callback = terminate_callback
 
-    try:
-        await asyncio.wait_for(austin.start(["-Ci", "10ms", "python"]), 30)
-    except AustinError:
-        austin.assert_callbacks_called()
+    await austin.start(["-Ci", "10ms", "python"])
+    await asyncio.wait_for(austin.wait(), 30)
+
+    austin.assert_callbacks_called()
 
 
 @pytest.mark.asyncio

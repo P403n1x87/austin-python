@@ -87,30 +87,26 @@ def test_pid_only():
 
 def test_args_list():
     args = Bunch()
-    args.alt_format = True
     args.children = True
-    args.exclude_empty = True
     args.full = True
     args.interval = 1000
     args.memory = True
     args.pid = 42
-    args.sleepless = True
+    args.cpu = True
     args.timeout = 50
     args.command = ["python3", "somescript.py"]
 
     args.foo = "bar"
 
     assert AustinArgumentParser.to_list(args) == [
-        "-a",
         "-C",
-        "-e",
         "-f",
         "-i",
         "1000",
         "-m",
         "-p",
         "42",
-        "-s",
+        "-c",
         "-t",
         "50",
         "python3",

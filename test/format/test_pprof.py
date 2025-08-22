@@ -22,24 +22,32 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import io
+from pathlib import Path
 
+from austin.events import AustinMetadata
+from austin.events import AustinSample
+from austin.format.collapsed_stack import AustinFileReader
 from austin.format.pprof import PProf
-from austin.stats import AustinFileReader
-from austin.stats import InvalidSample
-from austin.stats import MetricType
-from austin.stats import Sample
 
 
-def test_pprof(datapath):
-    with AustinFileReader(datapath / "austin.out") as austin:
-        mode = austin.metadata["mode"]
-        prof = PProf(mode)
+def test_pprof(datapath: Path):
+    prof = None
 
-        for line in austin:
-            try:
-                prof.add_samples(Sample.parse(line, MetricType.from_mode(mode)))
-            except InvalidSample:
+    with AustinFileReader((datapath / "austin.out").open()) as austin:
+        for e in austin:
+            # We need to determine the mode before we can start adding samples
+            # to the pprof
+            if isinstance(e, AustinMetadata) and e.name == "mode":
+                prof = PProf(e.value)
+                break
+        else:
+            raise RuntimeError("No mode metadata found in Austin file")
+
+        for e in austin:
+            if not isinstance(e, AustinSample):
                 continue
+
+            prof.add_sample(e)
 
         bstream = io.BytesIO()
         prof.dump(bstream)

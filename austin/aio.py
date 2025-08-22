@@ -23,12 +23,15 @@
 
 import asyncio
 import sys
-from typing import List
-from typing import Optional
+import typing as t
 
-from austin import AustinError
-from austin import BaseAustin
+from austin.base import AustinState
+from austin.base import BaseAustin
 from austin.cli import AustinArgumentParser
+from austin.errors import AustinError
+from austin.events import AustinMetadata
+from austin.events import AustinSample
+from austin.format.mojo import AsyncMojoStreamReader
 
 
 class AsyncAustin(BaseAustin):
@@ -37,68 +40,89 @@ class AsyncAustin(BaseAustin):
     Implements an ``asyncio`` API for Austin so that it can be used alongside
     other asynchronous tasks.
 
-    The following example shows how to make a simple asynchronous echo
-    implementation of Austin that behaves exactly just like Austin.
+    The following example shows how to make a simple asynchronous implementation
+    of Austin that returns stack in the collapsed format
 
     Example::
 
-        class EchoAsyncAustin(AsyncAustin):
-            def on_ready(self, process, child_process, command_line):
-                print(f"Austin PID: {process.pid}")
-                print(f"Python PID: {child_process.pid}")
-                print(f"Command Line: {command_line}")
+        import asyncio
+        import sys
 
-            def on_sample_received(self, line):
-                print(line)
+        from austin.aio import AsyncAustin
+        from austin.format.collapsed_stack import AustinEventCollapsedStackFormatter
 
-            def on_terminate(self, data):
-                print(data)
+        FORMATTER = AustinEventCollapsedStackFormatter()
+
+
+        class CollapsedStackAsyncAustin(AsyncAustin):
+            async def on_sample(self, sample):
+                print(FORMATTER.format(sample))
+
+            async def on_metadata(self, metadata):
+                print(FORMATTER.format(metadata))
+
 
         if sys.platform == "win32":
             asyncio.set_event_loop(asyncio.ProactorEventLoop())
 
-        try:
-            austin = EchoAsyncAustin()
-            asyncio.get_event_loop().run_until_complete(
-                austin.start(["-i", "10000", "python3", "myscript.py"])
-            )
-        except (KeyboardInterrupt, asyncio.CancelledError):
-            pass
+
+        async def main():
+            austin = CollapsedStackAsyncAustin()
+            await austin.start(["-i", "10ms", "python3", "myscript.py"])
+            await austin.wait()
+
+
+        asyncio.run(main())
     """
 
-    async def _read_stderr(self) -> Optional[str]:
-        assert self.proc.stderr is not None
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+        super().__init__(*args, **kwargs)
 
+        self._run_task: t.Optional[asyncio.Task] = None
+        self._proc: t.Optional[asyncio.subprocess.Process] = None
+
+    async def _run(self, mojo: AsyncMojoStreamReader) -> None:
+        # Start collecting samples
+        self._state = AustinState.RUNNING
+
+        async for e in mojo:
+            if isinstance(e, AustinSample):
+                try:
+                    await t.cast(t.Awaitable[None], self._sample_callback(e))
+                except Exception as exc:
+                    raise AustinError("Error in call to sample callback") from exc
+            elif isinstance(e, AustinMetadata):
+                self._meta[e.name] = e.value
+                if self._metadata_callback is not None:
+                    try:
+                        await t.cast(t.Awaitable[None], self._metadata_callback(e))
+                    except Exception as exc:
+                        raise AustinError("Error in call to metadata callback") from exc
+
+        self._state = AustinState.TERMINATING
+
+        # Call the terminate callback
         try:
-            return (
-                (await asyncio.wait_for(self.proc.stderr.read(), 0.1)).decode().rstrip()
-            )
-        except asyncio.TimeoutError:
-            return None
+            if self._terminate_callback is not None:
+                await t.cast(t.Awaitable[None], self._terminate_callback())
+        except Exception as exc:
+            raise AustinError("Error in call to terminate callback") from exc
 
-    async def _read_meta(self) -> None:
-        assert self.proc.stdout is not None
+        self._state = AustinState.TERMINATED
 
-        meta = {}
-
-        while True:
-            line = (await self.proc.stdout.readline()).decode().rstrip()
-            if not (line and line.startswith("# ")):
-                break
-            key, _, value = line[2:].partition(": ")
-            meta[key] = value
-
-        self._meta.update(meta)
-
-    async def start(self, args: Optional[List[str]] = None) -> None:
+    async def start(self, args: t.Optional[t.Sequence[str]] = None) -> None:
         """Create the start coroutine.
 
         Use with the ``asyncio`` event loop.
         """
+        self._args = AustinArgumentParser().parse_args(args)
+
+        self._state = AustinState.STARTING
+
         try:
             _args = list(args if args is not None else sys.argv[1:])  # Make a copy
             _args.insert(0, "-P")
-            self.proc = await asyncio.create_subprocess_exec(
+            self._proc = await asyncio.create_subprocess_exec(
                 self.binary_path,
                 *_args,
                 stdin=asyncio.subprocess.PIPE,
@@ -108,50 +132,53 @@ class AsyncAustin(BaseAustin):
         except FileNotFoundError:
             raise AustinError("Austin executable not found.") from None
 
-        if not self.proc.stdout:
+        if not self._proc.stdout:
             raise AustinError("Standard output stream is unexpectedly missing")
-        if not self.proc.stderr:
+        if not self._proc.stderr:
             raise AustinError("Standard error stream is unexpectedly missing")
 
-        self._running = True
+        mojo = AsyncMojoStreamReader(self._proc.stdout)
+
+        # Retrieve the Austin version, then call the ready callback
+        async for e in mojo:
+            if isinstance(e, AustinMetadata):
+                self._meta[e.name] = e.value
+
+                try:
+                    if self._metadata_callback is not None:
+                        await t.cast(t.Awaitable[None], self._metadata_callback(e))
+                except Exception as exc:
+                    raise AustinError("Error in call to metadata callback") from exc
+
+                if e.name == "austin":
+                    self._check_version()
+                    break
+        else:
+            raise AustinError("Cannot determine Austin version from output")
+
+        # Start the run task where we collect the samples
+        self._run_task = asyncio.create_task(self._run(mojo))
+
+    def terminate(self) -> None:
+        """Terminate Austin.
+
+        Stop the underlying Austin process by sending a termination signal.
+        """
+        if self._proc is None:
+            raise AustinError("Austin is not running")
 
         try:
-            await self._read_meta()
-            if not self._meta:
-                raise AustinError("Austin did not start properly")
+            self._proc.terminate()
+        except ProcessLookupError as exc:
+            raise AustinError("Austin process already terminated") from exc
 
-            self.check_version()
+    async def wait(self) -> int:
+        if self._proc is None or self._run_task is None:
+            raise AustinError("Austin process is not running")
 
-            self._ready_callback(
-                *self._get_process_info(
-                    AustinArgumentParser().parse_args(args), self.proc.pid
-                )
-            )
+        # Await the run task. This will terminate naturally when the Austin
+        # process has terminated.
+        await self._run_task
 
-            # Start readline loop
-            while self._running:
-                if not (data := await self.proc.stdout.readline()):
-                    break
-                data = data.rstrip()
-                if data.startswith(b"# "):
-                    key, _, value = data[2:].partition(b": ")
-                    self._meta[key.decode()] = value.decode()
-                    break
-
-                self.submit_sample(data)
-
-            await self._read_meta()
-            self._terminate_callback(self._meta)
-            self.check_exit(await self.proc.wait(), await self._read_stderr())
-
-        except Exception:
-            try:
-                self.proc.terminate()
-                await self.proc.wait()
-            except Exception:
-                # best effort
-                pass
-            raise
-
-        finally:
-            self._running = False
+        # Wait for the Austin process to terminate and return the exit code
+        return await self._proc.wait()

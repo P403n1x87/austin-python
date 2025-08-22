@@ -1,14 +1,18 @@
+import asyncio
 import typing as t
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
-from io import BufferedReader
 
-from austin.stats import ProcessId
-from austin.stats import ThreadName
-
-
-__version__ = "0.1.0"
+from austin.events import AustinEvent
+from austin.events import AustinEventIterator
+from austin.events import AustinFrame
+from austin.events import AustinMetadata
+from austin.events import AustinMetrics
+from austin.events import AustinSample
+from austin.events import InterpreterId
+from austin.events import ProcessId
+from austin.events import ThreadName
 
 
 def to_varint(n: int) -> bytes:
@@ -72,25 +76,6 @@ class MojoEventHandler:
         ...
 
 
-def handles(
-    e: int,
-) -> t.Callable[[t.Callable[["MojoFile"], t.Generator]], MojoEventHandler]:
-    """MOJO handler registration decorator."""
-
-    def _(f: t.Callable[["MojoFile"], t.Generator]) -> MojoEventHandler:
-        t.cast(MojoEventHandler, f).__event__ = e
-        return t.cast(MojoEventHandler, f)
-
-    return _
-
-
-class MojoMetricType(Enum):
-    """MOJO metric types."""
-
-    TIME = 0
-    MEMORY = 1
-
-
 class MojoEvent:
     """MOJO event."""
 
@@ -98,9 +83,20 @@ class MojoEvent:
         """Initialize the event."""
         self.raw = bytes([])
 
-    def to_austin(self) -> str:
-        """Convert the event to Austin format."""
-        return ""
+
+class MojoMetricType(str, Enum):
+    """MOJO metric types."""
+
+    TIME = "time"
+    MEMORY = "memory"
+
+
+@dataclass(frozen=True, eq=True)
+class MojoMetric(MojoEvent):
+    """MOJO metric."""
+
+    metric_type: MojoMetricType
+    value: int
 
 
 @dataclass(frozen=True, eq=True)
@@ -117,10 +113,6 @@ class MojoStringReference(MojoEvent):
 
     string: MojoString
 
-    def to_austin(self) -> str:
-        """Convert the event to Austin format."""
-        return self.string.value
-
 
 class MojoIdle(MojoEvent):
     """MOJO idle event."""
@@ -135,10 +127,6 @@ class MojoMetadata(MojoEvent):
     key: str
     value: str
 
-    def to_austin(self) -> str:
-        """Convert the event to Austin format."""
-        return f"# {self.key}: {self.value}\n"
-
 
 @dataclass(frozen=True, eq=True)
 class MojoStack(MojoEvent):
@@ -148,28 +136,18 @@ class MojoStack(MojoEvent):
     iid: int
     tid: str
 
-    def to_austin(self) -> str:
-        """Convert the event to Austin format."""
-        try:
-            tid = str(int(self.tid, 16))
-        except ValueError:
-            tid = self.tid
-        return (
-            f"P{self.pid};T{self.iid}:{tid}" if self.iid >= 0 else f"P{self.pid};T{tid}"
-        )
-
 
 @dataclass(frozen=True, eq=True)
 class MojoFrame(MojoEvent):
     """MOJO frame."""
 
     key: int
-    filename: MojoStringReference
-    scope: MojoStringReference
+    filename: MojoString
+    scope: MojoString
     line: int
-    line_end: int = 0
-    column: int = 0
-    column_end: int = 0
+    line_end: t.Optional[int] = None
+    column: t.Optional[int] = None
+    column_end: t.Optional[int] = None
 
 
 @dataclass(frozen=True, eq=True)
@@ -178,20 +156,12 @@ class MojoKernelFrame(MojoEvent):
 
     scope: str
 
-    def to_austin(self) -> str:
-        """Convert the event to Austin format."""
-        return f";kernel:{self.scope}:0"
-
 
 @dataclass(frozen=True, eq=True)
 class MojoSpecialFrame(MojoEvent):
     """MOJO special frame."""
 
     label: str
-
-    def to_austin(self) -> str:
-        """Convert the event to Austin format."""
-        return f";:{self.label}:"
 
 
 @dataclass(frozen=True, eq=True)
@@ -200,65 +170,73 @@ class MojoFrameReference(MojoEvent):
 
     frame: MojoFrame
 
-    def to_austin(self) -> str:
-        """Convert the event to Austin format."""
-        return f";{self.frame.filename.to_austin()}:{self.frame.scope.to_austin()}:{self.frame.line}"
 
-
-@dataclass(frozen=True, eq=True)
-class MojoMetric(MojoEvent):
-    """MOJO metric."""
-
-    metric_type: MojoMetricType
-    value: int
-
-    def to_austin(self) -> str:
-        """Convert the metric to Austin format."""
-        return f" {self.value}\n"
-
-
-@dataclass(frozen=True, eq=True)
-class MojoFullMetrics(MojoEvent):
-    """MOJO full metrics."""
-
-    metrics: t.List[t.Union[MojoMetric, int]]
-
-    def to_austin(self) -> str:
-        """Convert the event to Austin format."""
-        if len(self.metrics) == 3:
-            time, idle, memory = self.metrics
-            assert idle == 1, self.metrics
-        else:
-            time, memory = self.metrics
-            idle = 0
-
-        return f" {t.cast(MojoMetric, time).value},{idle},{t.cast(MojoMetric, memory).value}\n"
-
-
+EMPTY = MojoString(0, "")
 UNKNOWN = MojoString(1, "<unknown>")
-InterpreterId = int
+
+
+def handles(
+    e: int,
+) -> t.Callable[[t.Callable], MojoEventHandler]:
+    """MOJO handler registration decorator."""
+
+    def _(f: t.Callable) -> MojoEventHandler:
+        (h := t.cast(MojoEventHandler, f)).__event__ = e
+        return h
+
+    return _
 
 
 @dataclass
-class MojoSample:
-    """Austin sample."""
-
+class _RunningSample:
     pid: ProcessId
-    iid: InterpreterId
     thread: ThreadName
-    idle: bool = False
-    gc: bool = False
-    metrics: t.List[MojoMetric] = field(default_factory=list)
+    iid: t.Optional[InterpreterId] = None
     frames: t.List[MojoFrame] = field(default_factory=list)
-    metadata: t.Dict[str, str] = field(default_factory=dict)
+    metrics: t.Dict[MojoMetricType, MojoMetric] = field(default_factory=dict)
+    gc: t.Optional[bool] = None
+    idle: t.Optional[bool] = None
 
 
-class MojoFile:
-    """MOJO file."""
+def int_reader() -> t.Generator[t.Optional[int], bytes, int]:
+    (b,) = yield None
+    while True:
+        n = 0
+        s = 6
+        n |= b & 0x3F
+        sign = b & 0x40
+        while b & 0x80:
+            (b,) = yield None
+            n |= (b & 0x7F) << s
+            s += 7
+        (b,) = yield -n if sign else n
+
+
+def str_reader() -> t.Generator[t.Optional[str], bytes, str]:
+    """Read a string from the MOJO file."""
+    buffer = bytearray(1024)
+    i = 0
+    (b,) = yield None
+    while True:
+        if b == 0:
+            (b,) = yield bytes(buffer[:i]).decode(errors="replace")
+            i = 0
+        else:
+            buffer[i] = b
+            (b,) = yield None
+            i += 1
+
+
+class BaseMojoStreamReader(AustinEventIterator):
+    """Base MOJO stream reader.
+
+    Converts a stream of MOJO events into Austin events, that is samples and
+    metadata.
+    """
 
     __handlers__: t.Optional[t.Dict[int, t.Callable[[], None]]] = None
 
-    def __init__(self, mojo: BufferedReader) -> None:
+    def __init__(self, mojo: t.Any) -> None:
         if self.__handlers__ is None:
             self.__class__.__handlers__ = {
                 f.__event__: f
@@ -267,25 +245,26 @@ class MojoFile:
             }
 
         self.mojo = mojo
-        self._metrics: t.List[t.Union[MojoMetric, int]] = []
-        self._full_mode = False
+        self.mojo_version: t.Optional[int] = None
+
+        # Reference maps
         self._frame_map: t.Dict[t.Tuple[int, int], MojoFrame] = {}
+        self._string_map: t.Dict[t.Tuple[int, int], MojoString] = {}
+
+        # Internal parsing state
         self._offset = 0
         self._last_read = 0
         self._last_bytes = bytearray()
-        self._string_map: t.Dict[t.Tuple[int, int], MojoString] = {}
-        self._pid: t.Optional[int] = None
+        self._running_sample: t.Optional[_RunningSample] = None
 
-        if self.read(3) != b"MOJ":
-            raise ValueError("Not a MOJO file")
+        self._int_reader = int_reader()
+        next(self._int_reader)
+        self._str_reader = str_reader()
+        next(self._str_reader)
 
-        self.mojo_version = self.read_int()
+        # Austin events
         self.metadata: t.Dict[str, str] = {}
-        self.samples: t.List[MojoSample] = []
-
-        self.header = bytes(self._last_bytes)
-        self._last_bytes.clear()
-        self._last_sample: t.Optional[MojoSample] = None
+        self.samples: t.List[AustinSample] = []
 
     def ref(self, n: int) -> t.Tuple[int, int]:
         """Return a per-process reference key.
@@ -294,213 +273,282 @@ class MojoFile:
         relative to the current process, so it has to be combined with the
         last seen PID.
         """
-        pid = self._pid
-        assert pid is not None, pid
+        assert self._running_sample is not None
+        return (self._running_sample.pid, n)
 
-        return (pid, n)
-
-    def read(self, n: int) -> bytes:
+    def _read(self, data: bytes, n: int = 1) -> bytes:
         """Read bytes from the MOJO file."""
+        if len(data) != n:
+            raise ValueError(
+                f"Expected {n} bytes, got {len(data)} at offset {self._offset}"
+            )
+
         self._offset += self._last_read
         self._last_read = n
 
-        bytes = self.mojo.read(n)
+        self._last_bytes.extend(data)
 
-        self._last_bytes.extend(bytes)
+        return data
 
-        return bytes
+    def get_metadata(self, name: str, value: str) -> MojoMetadata:
+        """Parse metadata."""
+        metadata = MojoMetadata(name, value)
+
+        self.metadata[metadata.key] = metadata.value
+
+        return metadata
+
+    def _finalize_sample(self) -> AustinSample:
+        """Finalize the current sample."""
+        assert self._running_sample is not None, self._running_sample
+
+        self.samples.append(
+            sample := AustinSample(
+                pid=self._running_sample.pid,
+                iid=self._running_sample.iid,
+                thread=self._running_sample.thread,
+                metrics=AustinMetrics(
+                    **{
+                        metric_type.value: metric.value
+                        for metric_type, metric in self._running_sample.metrics.items()
+                    }
+                ),
+                frames=tuple(
+                    AustinFrame(
+                        filename=mf.filename.value,
+                        function=mf.scope.value,
+                        line=mf.line,
+                        line_end=mf.line_end,
+                        column=mf.column,
+                        column_end=mf.column_end,
+                    )
+                    for mf in self._running_sample.frames
+                )
+                if self._running_sample.frames
+                else None,
+                gc=self._running_sample.gc,
+                idle=self._running_sample.idle,
+            )
+        )
+
+        self._running_sample = None
+
+        return sample
+
+    def get_stack(self, pid: int, iid: t.Optional[int], thread: str) -> MojoStack:
+        """Parse a stack."""
+        if self._running_sample is not None:
+            self._finalize_sample()
+
+        self._running_sample = _RunningSample(pid=pid, iid=iid, thread=thread)
+
+        return MojoStack(pid, iid if iid is not None else -1, thread)
+
+    def _lookup_string(self, index: int) -> MojoString:
+        return UNKNOWN if index == 1 else self._string_map[self.ref(index)]
+
+    def get_frame(
+        self,
+        key: int,
+        filename_index: int,
+        scope_index: int,
+        line: int,
+        line_end: t.Optional[int],
+        column: t.Optional[int],
+        column_end: t.Optional[int],
+    ) -> MojoFrame:
+        """Parse a frame."""
+        filename = self._lookup_string(filename_index)
+        scope = self._lookup_string(scope_index)
+
+        if self.mojo_version == 1:
+            assert line_end == column == column_end is None
+
+        self._frame_map[self.ref(key)] = (
+            frame := MojoFrame(key, filename, scope, line, line_end, column, column_end)
+        )
+
+        return frame
+
+    def get_frame_ref(self, ref: int) -> MojoFrameReference:
+        """Parse a frame reference."""
+        frame = self._frame_map[self.ref(ref)]
+
+        assert self._running_sample is not None, self._running_sample
+        self._running_sample.frames.append(frame)
+
+        return MojoFrameReference(frame)
+
+    def get_kernel_frame(self, name: str) -> MojoKernelFrame:
+        """Parse kernel frame."""
+        return MojoKernelFrame(name)
+
+    def _get_metric(self, metric_type: MojoMetricType, value: int) -> MojoMetric:
+        metric = MojoMetric(metric_type, value)
+
+        assert self._running_sample is not None, self._running_sample
+        self._running_sample.metrics[metric_type] = metric
+
+        return metric
+
+    def get_time_metric(self, value: int) -> MojoMetric:
+        """Parse time metric."""
+        return self._get_metric(MojoMetricType.TIME, value)
+
+    def get_memory_metric(self, value: int) -> MojoMetric:
+        """Parse memory metric."""
+        return self._get_metric(MojoMetricType.MEMORY, value)
+
+    def get_invalid_frame(self) -> MojoSpecialFrame:
+        """Parse invalid frame."""
+        return MojoSpecialFrame("INVALID")
+
+    def get_idle(self) -> MojoIdle:
+        """Parse idle event."""
+        assert self._running_sample is not None, self._running_sample
+        self._running_sample.idle = True
+
+        return MojoIdle()
+
+    def get_gc(self) -> MojoSpecialFrame:
+        """Parse a GC event."""
+        assert self._running_sample is not None, self._running_sample
+        self._running_sample.gc = True
+
+        return MojoSpecialFrame("GC")
+
+    def get_string(self, key: int, value: str) -> MojoString:
+        """Parse a string."""
+        self._string_map[self.ref(key)] = (string := MojoString(key, value))
+
+        return string
+
+    def get_string_ref(self, key: int) -> MojoStringReference:
+        """Parse string reference."""
+        return MojoStringReference(self._string_map[self.ref(key)])
+
+    def unwind(self) -> None:
+        """Read the MOJO file."""
+        for _ in self:
+            pass
+
+
+class MojoStreamReader(BaseMojoStreamReader):
+    """MOJO stream reader.
+
+    Converts a stream of MOJO events into Austin events, that is samples and
+    metadata.
+    """
+
+    def read(self, n: int = 1) -> bytes:
+        """Read bytes from the MOJO file."""
+        return self._read(self.mojo.read(n), n)
 
     def read_int(self) -> int:
-        """Read an integer from the MOJO file."""
-        n = 0
-        s = 6
-        (b,) = self.read(1)
-        n |= b & 0x3F
-        sign = b & 0x40
-        while b & 0x80:
-            (b,) = self.read(1)
-            n |= (b & 0x7F) << s
-            s += 7
-        return -n if sign else n
-
-    def read_until(self, until: bytes = b"\0") -> bytes:
-        """Read until a given byte is found."""
-        buffer = bytearray()
         while True:
-            b = self.read(1)
-            if not b or b == until:
-                return bytes(buffer)
-            buffer += b
+            if (n := self._int_reader.send(self.read())) is not None:
+                return n
 
     def read_string(self) -> str:
         """Read a string from the MOJO file."""
-        return self.read_until().decode()
-
-    def _emit_metrics(self) -> t.Generator[t.Union[MojoEvent, int], None, None]:
-        """Emit metrics."""
-        if self._metrics:
-            yield (
-                MojoFullMetrics(self._metrics)
-                if self._full_mode
-                else self._metrics.pop()
-            )
-            self._metrics.clear()
+        while True:
+            if (s := self._str_reader.send(self.read())) is not None:
+                return s
 
     @handles(MojoEvents.METADATA)
-    def parse_metadata(self) -> t.Generator[t.Union[MojoEvent, int], None, None]:
+    def parse_metadata(self) -> MojoMetadata:
         """Parse metadata."""
-        yield from self._emit_metrics()
-
-        metadata = MojoMetadata(self.read_string(), self.read_string())
-        if metadata.key == "mode" and metadata.value == "full":
-            self._full_mode = True
-
-        if self._last_sample is not None:
-            self._last_sample.metadata[metadata.key] = metadata.value
-        else:
-            self.metadata[metadata.key] = metadata.value
-
-        yield metadata
+        return self.get_metadata(self.read_string(), self.read_string())
 
     @handles(MojoEvents.STACK)
-    def parse_stack(self) -> t.Generator[t.Union[MojoEvent, int], None, None]:
+    def parse_stack(self) -> MojoStack:
         """Parse a stack."""
-        yield from self._emit_metrics()
-
-        self._pid = pid = self.read_int()
-        iid = self.read_int() if self.mojo_version >= 3 else -1
-        thread = self.read_string()
-
-        self._last_sample = sample = MojoSample(thread=thread, pid=pid, iid=iid)
-        self.samples.append(sample)
-
-        yield MojoStack(pid, iid, thread)
-
-    def _lookup_string(self) -> MojoString:
-        n = self.read_int()
-        if n == 1:
-            return UNKNOWN
-
-        return self._string_map[self.ref(n)]
+        assert self.mojo_version is not None
+        return self.get_stack(
+            pid=self.read_int(),
+            iid=self.read_int() if self.mojo_version >= 3 else None,
+            thread=self.read_string(),
+        )
 
     @handles(MojoEvents.FRAME)
-    def parse_frame(self) -> t.Generator[MojoFrame, None, None]:
+    def parse_frame(self) -> MojoFrame:
         """Parse a frame."""
-        frame_key = self.read_int()
-        filename = MojoStringReference(self._lookup_string())
-        scope = MojoStringReference(self._lookup_string())
+        key = self.read_int()
+        filename_index = self.read_int()
+        scope_index = self.read_int()
         line = self.read_int()
 
         if self.mojo_version == 1:
-            line_end = column = column_end = 0
+            line_end = column = column_end = None
         else:
             line_end = self.read_int()
             column = self.read_int()
             column_end = self.read_int()
 
-        frame = MojoFrame(
-            frame_key, filename, scope, line, line_end, column, column_end
+        return self.get_frame(
+            key, filename_index, scope_index, line, line_end, column, column_end
         )
-
-        self._frame_map[self.ref(frame_key)] = frame
-
-        yield frame
 
     @handles(MojoEvents.FRAME_REF)
-    def parse_frame_ref(self) -> t.Generator[MojoFrameReference, None, None]:
+    def parse_frame_ref(self) -> MojoFrameReference:
         """Parse a frame reference."""
-        frame = self._frame_map[self.ref(self.read_int())]
-
-        assert self._last_sample is not None, self._last_sample
-        self._last_sample.frames.append(frame)
-
-        yield MojoFrameReference(frame)
+        return self.get_frame_ref(self.read_int())
 
     @handles(MojoEvents.FRAME_KERNEL)
-    def parse_kernel_frame(self) -> t.Generator[MojoKernelFrame, None, None]:
+    def parse_kernel_frame(self) -> MojoKernelFrame:
         """Parse kernel frame."""
-        yield MojoKernelFrame(self.read_string())
+        return self.get_kernel_frame(self.read_string())
 
-    def _parse_metric(self, metric_type: MojoMetricType) -> MojoEvent:
-        metric = MojoMetric(
-            metric_type,
-            self.read_int(),
-        )
-
-        if self._full_mode:
-            self._metrics.append(metric)
-            return MojoEvent()
-
-        assert self._last_sample is not None, self._last_sample
-        self._last_sample.metrics.append(metric)
-        self._last_sample = None
-
-        return metric
+    def _parse_metric(self, metric_type: MojoMetricType) -> MojoMetric:
+        return self._get_metric(metric_type, self.read_int())
 
     @handles(MojoEvents.METRIC_TIME)
-    def parse_time_metric(self) -> t.Generator[MojoEvent, None, None]:
+    def parse_time_metric(self) -> MojoMetric:
         """Parse time metric."""
-        yield self._parse_metric(MojoMetricType.TIME)
+        return self._parse_metric(MojoMetricType.TIME)
 
     @handles(MojoEvents.METRIC_MEMORY)
-    def parse_memory_metric(self) -> t.Generator[MojoEvent, None, None]:
+    def parse_memory_metric(self) -> MojoMetric:
         """Parse memory metric."""
-        yield self._parse_metric(MojoMetricType.MEMORY)
+        return self._parse_metric(MojoMetricType.MEMORY)
 
     @handles(MojoEvents.FRAME_INVALID)
-    def parse_invalid_frame(self) -> t.Generator[MojoSpecialFrame, None, None]:
+    def parse_invalid_frame(self) -> MojoSpecialFrame:
         """Parse invalid frame."""
-        yield MojoSpecialFrame("INVALID")
+        return self.get_invalid_frame()
 
     @handles(MojoEvents.IDLE)
-    def parse_idle(self) -> t.Generator[MojoIdle, None, None]:
+    def parse_idle(self) -> MojoIdle:
         """Parse idle event."""
-        self._metrics.append(1)
-
-        assert self._last_sample is not None, self._last_sample
-        self._last_sample.idle = True
-
-        yield MojoIdle()
+        return self.get_idle()
 
     @handles(MojoEvents.GC)
-    def parse_gc(self) -> t.Generator[MojoSpecialFrame, None, None]:
+    def parse_gc(self) -> MojoSpecialFrame:
         """Parse a GC event."""
-        assert self._last_sample is not None, self._last_sample
-        self._last_sample.gc = True
-
-        yield MojoSpecialFrame("GC")
+        return self.get_gc()
 
     @handles(MojoEvents.STRING)
-    def parse_string(self) -> t.Generator[MojoString, None, None]:
+    def parse_string(self) -> MojoString:
         """Parse a string."""
-        key = self.read_int()
-        value = self.read_string()
-
-        string = MojoString(key, value)
-
-        self._string_map[self.ref(key)] = string
-
-        yield string
+        return self.get_string(key=self.read_int(), value=self.read_string())
 
     @handles(MojoEvents.STRING_REF)
-    def parse_string_ref(self) -> t.Generator[MojoStringReference, None, None]:
+    def parse_string_ref(self) -> MojoStringReference:
         """Parse string reference."""
-        assert self._pid, self._pid
-        yield MojoStringReference(self._string_map[self.ref(self.read_int())])
+        return self.get_string_ref(self.read_int())
 
-    def parse_event(self) -> t.Generator[t.Optional[MojoEvent], None, None]:
+    def parse_event(self) -> t.Optional[MojoEvent]:
         """Parse a single event."""
         try:
-            (event_id,) = self.read(1)
+            (event_id,) = self.read()
         except ValueError:
-            yield None
-            return
+            return None
 
         try:
-            for event in t.cast(dict, self.__handlers__)[event_id](self):
-                object.__setattr__(event, "raw", bytes(self._last_bytes))
-                self._last_bytes.clear()
-                yield event
+            event = t.cast(dict, self.__handlers__)[event_id](self)
+            object.__setattr__(event, "raw", bytes(self._last_bytes))
+            self._last_bytes.clear()
+            return event
         except KeyError as exc:
             raise ValueError(
                 f"Unhandled event: {event_id} (offset: {self._offset}, last read: {self._last_read})"
@@ -514,18 +562,41 @@ class MojoFile:
 
         Produces a stream of events.
         """
+        # Check the MOJO header
+        if self.mojo_version is None:
+            if self.read(3) != b"MOJ":
+                raise ValueError("Not a MOJO stream")
+
+            # Get the MOJO version
+            self.mojo_version = self.read_int()
+
+            # Store the header bytes
+            self.header = bytes(self._last_bytes)
+            self._last_bytes.clear()
+
+        # Parse the MOJO events
         while True:
-            for e in self.parse_event():
-                if e is None:
-                    return
-                yield e
+            if (e := self.parse_event()) is None:
+                return
+            yield e
 
     def unwind(self) -> None:
         """Read the MOJO file."""
-        for _ in self.parse():
+        for _ in self:
             pass
 
-    def hexdump(self, start: int, end: int, highlight: t.Set[int] = set()) -> None:
+    def __iter__(self) -> t.Iterator[AustinEvent]:
+        """Iterate over the MOJO file."""
+        for e in self.parse():
+            if isinstance(e, MojoMetadata):
+                yield AustinMetadata(e.key, e.value)
+            elif isinstance(e, MojoStack):
+                if self.samples:
+                    yield self.samples[-1]
+        if self._running_sample is not None:
+            yield self._finalize_sample()
+
+    def hexdump(self, start: int, end: int, highlight: t.Set[int] = set()) -> None:  # noqa: B006
         """Print a hexdump of the MOJO file."""
         self.mojo.seek(start)
         data = self.mojo.read(end - start)
@@ -542,36 +613,168 @@ class MojoFile:
             print(f"{start + i:08x}: {line} | {rep}")
 
 
-def main() -> None:
-    from argparse import ArgumentParser
+class AsyncMojoStreamReader(BaseMojoStreamReader):
+    """Asynchronous MOJO stream reader.
 
-    arg_parser = ArgumentParser(
-        prog="mojo2austin",
-        description="Convert MOJO files to Austin format.",
-    )
+    Converts a stream of MOJO events into Austin events, that is samples and
+    metadata.
+    """
 
-    arg_parser.add_argument(
-        "input",
-        type=str,
-        help="The MOJO file to convert",
-    )
-    arg_parser.add_argument(
-        "output", type=str, help="The name of the output Austin file."
-    )
+    async def read(self, n: int = 1) -> bytes:
+        """Read bytes from the MOJO file."""
+        data = await t.cast(asyncio.StreamReader, self.mojo).read(n)
+        return self._read(data, n)
 
-    arg_parser.add_argument("-V", "--version", action="version", version=__version__)
+    async def read_int(self) -> int:
+        while True:
+            if (n := self._int_reader.send(await self.read())) is not None:
+                return n
 
-    args = arg_parser.parse_args()
+    async def read_string(self) -> str:
+        """Read a string from the MOJO file."""
+        while True:
+            if (s := self._str_reader.send(await self.read())) is not None:
+                return s
 
-    try:
-        with open(args.input, "rb") as mojo, open(args.output, "w") as fout:
-            for event in MojoFile(mojo).parse():
-                fout.write(event.to_austin())
+    @handles(MojoEvents.METADATA)
+    async def parse_metadata(self) -> MojoMetadata:
+        """Parse metadata."""
+        return self.get_metadata(await self.read_string(), await self.read_string())
 
-    except FileNotFoundError:
-        print(f"No such input file: {args.input}")
-        exit(1)
+    @handles(MojoEvents.STACK)
+    async def parse_stack(self) -> MojoStack:
+        """Parse a stack."""
+        assert self.mojo_version is not None
+        return self.get_stack(
+            pid=await self.read_int(),
+            iid=await self.read_int() if self.mojo_version >= 3 else None,
+            thread=await self.read_string(),
+        )
 
+    @handles(MojoEvents.FRAME)
+    async def parse_frame(self) -> MojoFrame:
+        """Parse a frame."""
+        key = await self.read_int()
+        filename_index = await self.read_int()
+        scope_index = await self.read_int()
+        line = await self.read_int()
 
-if __name__ == "__main__":
-    main()
+        if self.mojo_version == 1:
+            line_end = column = column_end = None
+        else:
+            line_end = await self.read_int()
+            column = await self.read_int()
+            column_end = await self.read_int()
+
+        return self.get_frame(
+            key, filename_index, scope_index, line, line_end, column, column_end
+        )
+
+    @handles(MojoEvents.FRAME_REF)
+    async def parse_frame_ref(self) -> MojoFrameReference:
+        """Parse a frame reference."""
+        return self.get_frame_ref(await self.read_int())
+
+    @handles(MojoEvents.FRAME_KERNEL)
+    async def parse_kernel_frame(self) -> MojoKernelFrame:
+        """Parse kernel frame."""
+        return self.get_kernel_frame(await self.read_string())
+
+    async def _parse_metric(self, metric_type: MojoMetricType) -> MojoMetric:
+        return self._get_metric(metric_type, await self.read_int())
+
+    @handles(MojoEvents.METRIC_TIME)
+    async def parse_time_metric(self) -> MojoMetric:
+        """Parse time metric."""
+        return await self._parse_metric(MojoMetricType.TIME)
+
+    @handles(MojoEvents.METRIC_MEMORY)
+    async def parse_memory_metric(self) -> MojoMetric:
+        """Parse memory metric."""
+        return await self._parse_metric(MojoMetricType.MEMORY)
+
+    @handles(MojoEvents.FRAME_INVALID)
+    async def parse_invalid_frame(self) -> MojoSpecialFrame:
+        """Parse invalid frame."""
+        return self.get_invalid_frame()
+
+    @handles(MojoEvents.IDLE)
+    async def parse_idle(self) -> MojoIdle:
+        """Parse idle event."""
+        return self.get_idle()
+
+    @handles(MojoEvents.GC)
+    async def parse_gc(self) -> MojoSpecialFrame:
+        """Parse a GC event."""
+        return self.get_gc()
+
+    @handles(MojoEvents.STRING)
+    async def parse_string(self) -> MojoString:
+        """Parse a string."""
+        return self.get_string(
+            key=await self.read_int(), value=await self.read_string()
+        )
+
+    @handles(MojoEvents.STRING_REF)
+    async def parse_string_ref(self) -> MojoStringReference:
+        """Parse string reference."""
+        return self.get_string_ref(await self.read_int())
+
+    async def parse_event(self) -> t.Optional[MojoEvent]:
+        """Parse a single event."""
+        try:
+            (event_id,) = await self.read()
+        except ValueError:
+            return None
+
+        try:
+            event = await t.cast(dict, self.__handlers__)[event_id](self)
+            object.__setattr__(event, "raw", bytes(self._last_bytes))
+            self._last_bytes.clear()
+            return event
+        except KeyError as exc:
+            raise ValueError(
+                f"Unhandled event: {event_id} (offset: {self._offset}, last read: {self._last_read})"
+            ) from exc
+        except Exception as exc:
+            msg = f"Invalid byte sequence at offset {self._offset} (last read: {self._last_read})"
+            raise MojoParseError(msg) from exc
+
+    async def parse(self) -> t.AsyncIterator[MojoEvent]:
+        """Parse the MOJO file.
+
+        Produces a stream of events.
+        """
+        # Check the MOJO header
+        if self.mojo_version is None:
+            if await self.read(3) != b"MOJ":
+                raise ValueError("Not a MOJO stream")
+
+            # Get the MOJO version
+            self.mojo_version = await self.read_int()
+
+            # Store the header bytes
+            self.header = bytes(self._last_bytes)
+            self._last_bytes.clear()
+
+        # Parse the MOJO events
+        while True:
+            if (e := await self.parse_event()) is None:
+                return
+            yield e
+
+    def unwind(self) -> None:
+        """Read the MOJO file."""
+        for _ in self:
+            pass
+
+    async def __aiter__(self) -> t.AsyncIterator[AustinEvent]:
+        """Iterate over the MOJO file."""
+        async for e in self.parse():
+            if isinstance(e, MojoMetadata):
+                yield AustinMetadata(e.key, e.value)
+            elif isinstance(e, MojoStack):
+                if self.samples:
+                    yield self.samples[-1]
+        if self._running_sample is not None:
+            yield self._finalize_sample()

@@ -22,35 +22,39 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import io
+from pathlib import Path
 
+from austin.format.collapsed_stack import AustinFileReader
 from austin.format.compress import compress
-from austin.stats import AustinFileReader
 
 
-def test_compress(datapath):
-    with AustinFileReader(datapath / "austin.out") as original:
+def test_compress(datapath: Path):
+    with AustinFileReader((datapath / "austin.out").open()) as original:
         compressed = io.StringIO()
         compress(original, compressed)
 
-        with open(datapath / "austin.out") as original:
-            compressed_value = compressed.getvalue()
-            assert compressed_value
-            assert len(compressed_value.splitlines()) < len(original.readlines())
+        compressed_value = compressed.getvalue()
+        assert compressed_value
+        assert len(compressed_value.splitlines()) < len(
+            (datapath / "austin.out").open().readlines()
+        )
 
 
-def test_compress_counts(datapath):
-    with AustinFileReader(datapath / "austin.out") as original:
+def test_compress_counts(datapath: Path):
+    with AustinFileReader((datapath / "austin.out").open()) as original:
         compressed = io.StringIO()
         compress(original, compressed, counts=True)
 
         for sample in compressed.getvalue().splitlines():
             head, _, metric = sample.rpartition(" ")
             if (
-                head == "P4317;T7ffb7f8f0700;"
-                "_bootstrap (/usr/lib/python3.6/threading.py);L884;"
-                "_bootstrap_inner (/usr/lib/python3.6/threading.py);L916;"
-                "run (/usr/lib/python3.6/threading.py);L864;"
-                "keep_cpu_busy (../austin/test/target34.py);L31"
+                head == "P82848;T534600;"
+                "/home/gabriele/Projects/austin/test/target34.py:<module>:38;"
+                "/home/gabriele/Projects/austin/test/target34.py:keep_cpu_busy:32"
             ):
-                assert int(metric) == 20
+                assert int(metric) == 19
                 break
+        else:
+            print(compressed.getvalue())
+            msg = "Expected sample not found in compressed output"
+            raise AssertionError(msg)

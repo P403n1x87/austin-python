@@ -62,7 +62,7 @@ austin-compress = "austin.format.compress:main"
 austin-diff = "austin.tools.diff:main"
 austin2pprof = "austin.format.pprof.__main__:main"
 austin2speedscope = "austin.format.speedscope:main"
-mojo2austin = "austin.format.mojo:main"
+mojo2austin = "austin.format.collapsed_stack:main"
 austinp-resolve = "austin.tools.resolve:main"
 mojodbg = "austin.tools.mojodbg:main"
 

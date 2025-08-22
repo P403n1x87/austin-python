@@ -23,111 +23,135 @@
 
 import subprocess
 import sys
-from typing import List
-from typing import Optional
+import typing as t
 
-from austin import AustinError
-from austin import BaseAustin
+from austin.base import AustinState
+from austin.base import BaseAustin
 from austin.cli import AustinArgumentParser
+from austin.errors import AustinError
+from austin.events import AustinMetadata
+from austin.events import AustinSample
+from austin.format.mojo import MojoStreamReader
 
 
 class SimpleAustin(BaseAustin):
     """Simple implementation of Austin.
 
     This is the simplest way to start Austin from Python if you do not need to
-    carry out other operation in parallel. Calling :func:`start` returns only
-    once Austin has terminated.
+    carry out other operation in parallel. The following example shows how to
+    make a simple implementation of Austin that returns stack in the collapsed
+    format
 
     Example::
 
-        class EchoSimpleAustin(SimpleAustin):
-            def on_ready(self, process, child_process, command_line):
-                print(f"Austin PID: {process.pid}")
-                print(f"Python PID: {child_process.pid}")
-                print(f"Command Line: {command_line}")
+        from austin.events import AustinMetadata, AustinSample
+        from austin.format.collapsed_stack import AustinEventCollapsedStackFormatter
+        from austin.simple import SimpleAustin
 
-            def on_sample_received(self, line):
-                print(line)
+        FORMATTER = AustinEventCollapsedStackFormatter()
 
-            def on_terminate(self, data):
-                print(data)
 
-        try:
-            austin = EchoSimpleAustin()
-            austin.start(["-i", "10000"], ["python3", "myscript.py"])
-        except KeyboardInterrupt:
-            pass
+        class CollapsedStackSimpleAustin(SimpleAustin):
+            def on_metadata(self, metadata: AustinMetadata) -> None:
+                print(FORMATTER.format(metadata))
+
+            def on_sample(self, sample: AustinSample) -> None:
+                print(FORMATTER.format(sample))
+
+
+        austin = CollapsedStackSimpleAustin()
+        austin.start(["-i", "10ms", "python3", "myscript.py"])
+        austin.wait()
     """
 
-    def _read_meta(self) -> None:
-        assert self.proc.stdout
+    def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
+        super().__init__(*args, **kwargs)
 
-        meta = {}
+        self._proc: t.Optional[subprocess.Popen] = None
+        self._mojo: t.Optional[MojoStreamReader] = None
 
-        while True:
-            line = self.proc.stdout.readline().decode().rstrip()
-            if not (line and line.startswith("# ")):
-                break
-            key, _, value = line[2:].partition(": ")
-            meta[key] = value
-
-        self._meta.update(meta)
-
-    def start(self, args: Optional[List[str]] = None) -> None:
+    def start(self, args: t.Optional[t.Sequence[str]] = None) -> None:
         """Start the Austin process."""
+        self._args = AustinArgumentParser().parse_args(args)
+
+        self._state = AustinState.STARTING
+
         try:
-            self.proc = subprocess.Popen(
-                [self.binary_path]
-                + ["-P"]
-                + (args if args is not None else sys.argv[1:]),
+            self._proc = subprocess.Popen(
+                [
+                    str(self.binary_path),
+                    "-P",
+                    *(args if args is not None else sys.argv[1:]),
+                ],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
         except FileNotFoundError:
             raise AustinError("Austin executable not found.") from None
 
-        if not self.proc.stdout:
+        if not self._proc.stdout:
             raise AustinError("Standard output stream is unexpectedly missing")
-        if not self.proc.stderr:
+        if not self._proc.stderr:
             raise AustinError("Standard error stream is unexpectedly missing")
 
+        self._mojo = MojoStreamReader(self._proc.stdout)
+
+        # Retrieve the Austin version, then call the ready callback
+        for e in self._mojo:
+            if isinstance(e, AustinMetadata):
+                self._meta[e.name] = e.value
+
+                try:
+                    if self._metadata_callback is not None:
+                        self._metadata_callback(e)
+                except Exception as exc:
+                    raise AustinError("Error in call to metadata callback") from exc
+
+                if e.name == "austin":
+                    self._check_version()
+                    break
+        else:
+            raise AustinError("Cannot determine Austin version from output")
+
+    def terminate(self) -> None:
+        """Terminate the Austin process."""
+        if self._proc is None:
+            raise AustinError("Austin process is not running")
+
+        self._proc.terminate()
+
+    def wait(self) -> int:
+        if self._proc is None:
+            raise AustinError("Austin process is not running")
+
+        self._state = AustinState.RUNNING
+
+        assert self._mojo is not None
+
+        for e in self._mojo:
+            if isinstance(e, AustinSample):
+                try:
+                    self._sample_callback(e)
+                except Exception as exc:
+                    raise AustinError("Error in call to sample callback") from exc
+            elif isinstance(e, AustinMetadata):
+                self._meta[e.name] = e.value
+                if self._metadata_callback is not None:
+                    try:
+                        self._metadata_callback(e)
+                    except Exception as exc:
+                        raise AustinError("Error in call to metadata callback") from exc
+
+        self._state = AustinState.TERMINATING
+
+        # Call the terminate callback
         try:
-            self._read_meta()
-            if not self._meta:
-                raise AustinError("Austin did not start properly")
+            if self._terminate_callback is not None:
+                self._terminate_callback()
+        except Exception as exc:
+            raise AustinError("Error in call to terminate callback") from exc
 
-            self.check_version()
-
-            self._ready_callback(
-                *self._get_process_info(
-                    AustinArgumentParser().parse_args(args), self.proc.pid
-                )
-            )
-
-            while self.is_running():
-                data = self.proc.stdout.readline().rstrip()
-                if not data:
-                    break
-                if data.startswith(b"# "):
-                    key, _, value = data[2:].partition(b": ")
-                    self._meta[key.decode()] = value.decode()
-                    break
-
-                self.submit_sample(data)
-
-            self._read_meta()
-            self._terminate_callback(self._meta)
-
-            try:
-                stderr = self.proc.communicate(timeout=1)[1].decode().rstrip()
-            except subprocess.TimeoutExpired:
-                stderr = ""
-            self.check_exit(self.proc.wait(), stderr)
-
-        except Exception:
-            self.proc.terminate()
-            self.proc.wait()
-            raise
-
+        try:
+            return self._proc.wait()
         finally:
-            self._running = False
+            self._state = AustinState.TERMINATED

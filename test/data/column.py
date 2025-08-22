@@ -1,5 +1,6 @@
 from time import sleep
 
+
 def lazy(n):
     for _ in range(n):
         sleep(0.1)

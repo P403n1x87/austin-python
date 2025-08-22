@@ -29,8 +29,8 @@ from pathlib import Path
 import toml
 from pytest import raises
 
-from austin import AustinError
 from austin.config import AustinConfiguration as AC
+from austin.errors import AustinError
 from austin.simple import SimpleAustin
 
 
@@ -39,20 +39,20 @@ class TestSimpleAustin(SimpleAustin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._ready = False
+        self._metadata = False
         self._sample_received = False
         self._terminate = False
 
-    def on_ready(self, process, child_process, command_line):
-        assert process.pid != child_process.pid
-        assert "python" in self.get_command_line().lower()
-        self._ready = True
-
-    def on_sample_received(self, line):
-        assert line
+    def on_sample(self, sample):
+        assert sample
         self._sample_received = True
 
-    def on_terminate(self, data):
+    def on_metadata(self, metadata):
+        assert metadata
+        self._metadata = True
+
+    def on_terminate(self):
+        data = self._meta
         assert "duration" in data
         assert "errors" in data
         assert "sampling" in data
@@ -60,17 +60,18 @@ class TestSimpleAustin(SimpleAustin):
         self._terminate = True
 
     def assert_callbacks_called(self):
-        assert self._ready and self._sample_received and self._terminate
+        assert self._metadata and self._sample_received and self._terminate
 
 
 class InvalidBinarySimpleAustin(SimpleAustin):
-    BINARY = "_austin"
+    BINARY = Path("_austin")
 
 
 def test_simple():
     austin = TestSimpleAustin()
 
     austin.start(["-Ci", "1000", "python", "-c", "from time import sleep; sleep(1)"])
+    austin.wait()
 
     austin.assert_callbacks_called()
 

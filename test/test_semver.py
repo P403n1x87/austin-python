@@ -1,6 +1,6 @@
 import pytest
 
-from austin import _to_semver
+from austin.base import _to_semver
 
 
 @pytest.mark.parametrize(

@@ -24,14 +24,13 @@
 import io
 from copy import deepcopy
 
+from austin.events import AustinFrame
+from austin.format.collapsed_stack import AustinFileReader
+from austin.format.collapsed_stack import parse_collapsed_stack
 from austin.stats import AustinStats
 from austin.stats import AustinStatsType
-from austin.stats import Frame
 from austin.stats import FrameStats
-from austin.stats import Metric
-from austin.stats import MetricType
 from austin.stats import ProcessStats
-from austin.stats import Sample
 from austin.stats import ThreadStats
 
 
@@ -45,9 +44,7 @@ P42;T0x7f45645646;foo_module.py:foo:10;bar_sample.py:bar:20 1000
 def test_austin_stats_single_process():
     stats = AustinStats(stats_type=AustinStatsType.WALL)
 
-    stats.update(
-        Sample.parse("P42;T0x7f45645646;foo_module.py:foo:10 152", MetricType.TIME)[0]
-    )
+    stats.update(parse_collapsed_stack("P42;T0x7f45645646;foo_module.py:foo:10 152"))
     assert stats == AustinStats(
         stats_type=AustinStatsType.WALL,
         processes={
@@ -56,13 +53,17 @@ def test_austin_stats_single_process():
                 threads={
                     "0x7f45645646": ThreadStats(
                         label="0x7f45645646",
-                        own=Metric(MetricType.TIME, 0),
-                        total=Metric(MetricType.TIME, 152),
+                        own=0,
+                        total=152,
                         children={
-                            Frame("foo", "foo_module.py", 10): FrameStats(
-                                label=Frame("foo", "foo_module.py", 10),
-                                own=Metric(MetricType.TIME, 152),
-                                total=Metric(MetricType.TIME, 152),
+                            AustinFrame(
+                                function="foo", filename="foo_module.py", line=10
+                            ): FrameStats(
+                                label=AustinFrame(
+                                    function="foo", filename="foo_module.py", line=10
+                                ),
+                                own=152,
+                                total=152,
                             )
                         },
                     )
@@ -71,7 +72,7 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(Sample.parse("P42;T0x7f45645646 148", MetricType.TIME)[0])
+    stats.update(parse_collapsed_stack("P42;T0x7f45645646 148"))
     assert stats == AustinStats(
         stats_type=AustinStatsType.WALL,
         processes={
@@ -80,13 +81,17 @@ def test_austin_stats_single_process():
                 threads={
                     "0x7f45645646": ThreadStats(
                         label="0x7f45645646",
-                        total=Metric(MetricType.TIME, 300),
-                        own=Metric(MetricType.TIME, 148),
+                        total=300,
+                        own=148,
                         children={
-                            Frame("foo", "foo_module.py", 10): FrameStats(
-                                label=Frame("foo", "foo_module.py", 10),
-                                own=Metric(MetricType.TIME, 152),
-                                total=Metric(MetricType.TIME, 152),
+                            AustinFrame(
+                                function="foo", filename="foo_module.py", line=10
+                            ): FrameStats(
+                                label=AustinFrame(
+                                    function="foo", filename="foo_module.py", line=10
+                                ),
+                                own=152,
+                                total=152,
                             )
                         },
                     )
@@ -95,9 +100,7 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(
-        Sample.parse("P42;T0x7f45645646;foo_module.py:foo:10 100", MetricType.TIME)[0]
-    )
+    stats.update(parse_collapsed_stack("P42;T0x7f45645646;foo_module.py:foo:10 100"))
     assert stats == AustinStats(
         stats_type=AustinStatsType.WALL,
         processes={
@@ -106,13 +109,17 @@ def test_austin_stats_single_process():
                 threads={
                     "0x7f45645646": ThreadStats(
                         label="0x7f45645646",
-                        total=Metric(MetricType.TIME, 400),
-                        own=Metric(MetricType.TIME, 148),
+                        total=400,
+                        own=148,
                         children={
-                            Frame("foo", "foo_module.py", 10): FrameStats(
-                                label=Frame("foo", "foo_module.py", 10),
-                                own=Metric(MetricType.TIME, 252),
-                                total=Metric(MetricType.TIME, 252),
+                            AustinFrame(
+                                function="foo", filename="foo_module.py", line=10
+                            ): FrameStats(
+                                label=AustinFrame(
+                                    function="foo", filename="foo_module.py", line=10
+                                ),
+                                own=252,
+                                total=252,
                             )
                         },
                     )
@@ -121,9 +128,7 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(
-        Sample.parse("P42;T0x7f45645646;foo_module.py:bar:35 400", MetricType.TIME)[0]
-    )
+    stats.update(parse_collapsed_stack("P42;T0x7f45645646;foo_module.py:bar:35 400"))
     assert stats == AustinStats(
         stats_type=AustinStatsType.WALL,
         processes={
@@ -132,18 +137,26 @@ def test_austin_stats_single_process():
                 threads={
                     "0x7f45645646": ThreadStats(
                         label="0x7f45645646",
-                        total=Metric(MetricType.TIME, 800),
-                        own=Metric(MetricType.TIME, 148),
+                        total=800,
+                        own=148,
                         children={
-                            Frame("foo", "foo_module.py", 10): FrameStats(
-                                label=Frame("foo", "foo_module.py", 10),
-                                own=Metric(MetricType.TIME, 252),
-                                total=Metric(MetricType.TIME, 252),
+                            AustinFrame(
+                                function="foo", filename="foo_module.py", line=10
+                            ): FrameStats(
+                                label=AustinFrame(
+                                    function="foo", filename="foo_module.py", line=10
+                                ),
+                                own=252,
+                                total=252,
                             ),
-                            Frame("bar", "foo_module.py", 35): FrameStats(
-                                label=Frame("bar", "foo_module.py", 35),
-                                own=Metric(MetricType.TIME, 400),
-                                total=Metric(MetricType.TIME, 400),
+                            AustinFrame(
+                                function="bar", filename="foo_module.py", line=35
+                            ): FrameStats(
+                                label=AustinFrame(
+                                    function="bar", filename="foo_module.py", line=35
+                                ),
+                                own=400,
+                                total=400,
                             ),
                         },
                     )
@@ -152,9 +165,7 @@ def test_austin_stats_single_process():
         },
     )
 
-    stats.update(
-        Sample.parse("P42;T0x7f45645664;foo_module.py:foo:10 152", MetricType.TIME)[0]
-    )
+    stats.update(parse_collapsed_stack("P42;T0x7f45645664;foo_module.py:foo:10 152"))
     assert stats == AustinStats(
         stats_type=AustinStatsType.WALL,
         processes={
@@ -163,30 +174,42 @@ def test_austin_stats_single_process():
                 threads={
                     "0x7f45645664": ThreadStats(
                         label="0x7f45645664",
-                        own=Metric(MetricType.TIME, 0),
-                        total=Metric(MetricType.TIME, 152),
+                        own=0,
+                        total=152,
                         children={
-                            Frame("foo", "foo_module.py", 10): FrameStats(
-                                label=Frame("foo", "foo_module.py", 10),
-                                own=Metric(MetricType.TIME, 152),
-                                total=Metric(MetricType.TIME, 152),
+                            AustinFrame(
+                                function="foo", filename="foo_module.py", line=10
+                            ): FrameStats(
+                                label=AustinFrame(
+                                    function="foo", filename="foo_module.py", line=10
+                                ),
+                                own=152,
+                                total=152,
                             )
                         },
                     ),
                     "0x7f45645646": ThreadStats(
                         label="0x7f45645646",
-                        total=Metric(MetricType.TIME, 800),
-                        own=Metric(MetricType.TIME, 148),
+                        total=800,
+                        own=148,
                         children={
-                            Frame("foo", "foo_module.py", 10): FrameStats(
-                                label=Frame("foo", "foo_module.py", 10),
-                                own=Metric(MetricType.TIME, 252),
-                                total=Metric(MetricType.TIME, 252),
+                            AustinFrame(
+                                function="foo", filename="foo_module.py", line=10
+                            ): FrameStats(
+                                label=AustinFrame(
+                                    function="foo", filename="foo_module.py", line=10
+                                ),
+                                own=252,
+                                total=252,
                             ),
-                            Frame("bar", "foo_module.py", 35): FrameStats(
-                                label=Frame("bar", "foo_module.py", 35),
-                                own=Metric(MetricType.TIME, 400),
-                                total=Metric(MetricType.TIME, 400),
+                            AustinFrame(
+                                function="bar", filename="foo_module.py", line=35
+                            ): FrameStats(
+                                label=AustinFrame(
+                                    function="bar", filename="foo_module.py", line=35
+                                ),
+                                own=400,
+                                total=400,
                             ),
                         },
                     ),
@@ -203,10 +226,10 @@ def test_dump():
     FOO_SAMPLE = "P42;T0x7f45645646;foo_module.py:foo:10 150"
     BAR_SAMPLE = "P42;T0x7f45645646;foo_module.py:foo:10;bar_sample.py:bar:20 1000"
 
-    stats.update(Sample.parse(FOO_SAMPLE, MetricType.TIME)[0])
-    stats.update(Sample.parse(FOO_SAMPLE, MetricType.TIME)[0])
-    stats.update(Sample.parse(BAR_SAMPLE, MetricType.TIME)[0])
-    stats.update(Sample.parse(EMPTY_SAMPLE, MetricType.TIME)[0])
+    stats.update(parse_collapsed_stack(FOO_SAMPLE))
+    stats.update(parse_collapsed_stack(FOO_SAMPLE))
+    stats.update(parse_collapsed_stack(BAR_SAMPLE))
+    stats.update(parse_collapsed_stack(EMPTY_SAMPLE))
 
     buffer = io.StringIO()
     stats.dump(buffer)
@@ -215,7 +238,7 @@ def test_dump():
 
 def test_load():
     buffer = io.StringIO(DUMP_LOAD_SAMPLES.format(""))
-    stats = AustinStats.load(buffer)
+    stats = AustinStats.load(AustinFileReader(buffer))
     assert stats[AustinStatsType.WALL] == AustinStats(
         stats_type=AustinStatsType.WALL,
         processes={
@@ -224,30 +247,30 @@ def test_load():
                 threads={
                     "0x7f45645646": ThreadStats(
                         label="0x7f45645646",
-                        own=Metric(MetricType.TIME, 0),
-                        total=Metric(MetricType.TIME, 1300),
+                        own=0,
+                        total=1300,
                         children={
-                            Frame(
+                            AustinFrame(
                                 function="foo", filename="foo_module.py", line=10
                             ): FrameStats(
-                                label=Frame(
+                                label=AustinFrame(
                                     function="foo", filename="foo_module.py", line=10
                                 ),
-                                own=Metric(MetricType.TIME, 300),
-                                total=Metric(MetricType.TIME, 1300),
+                                own=300,
+                                total=1300,
                                 children={
-                                    Frame(
+                                    AustinFrame(
                                         function="bar",
                                         filename="bar_sample.py",
                                         line=20,
                                     ): FrameStats(
-                                        label=Frame(
+                                        label=AustinFrame(
                                             function="bar",
                                             filename="bar_sample.py",
                                             line=20,
                                         ),
-                                        own=Metric(MetricType.TIME, 1000),
-                                        total=Metric(MetricType.TIME, 1000),
+                                        own=1000,
+                                        total=1000,
                                         children={},
                                         height=1,
                                     )
@@ -265,9 +288,7 @@ def test_load():
 def test_deepcopy():
     stats = AustinStats(stats_type=AustinStatsType.WALL)
 
-    stats.update(
-        Sample.parse("P42;T0x7f45645646;foo_module.py:foo:10 152", MetricType.TIME)[0]
-    )
+    stats.update(parse_collapsed_stack("P42;T0x7f45645646;foo_module.py:foo:10 152"))
     cloned_stats = deepcopy(stats)
     assert cloned_stats == stats
     assert cloned_stats is not stats

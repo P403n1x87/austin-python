@@ -23,38 +23,40 @@
 
 from copy import deepcopy
 
-from austin.stats import Frame
+from austin.events import AustinFrame
 from austin.stats import FrameStats
-from austin.stats import Metric
-from austin.stats import MetricType
 
 
 def test_frame_stats_add_disjoint():
     ref_frame_stats = FrameStats(
-        label=Frame("foo", "foo_module.py", 10),
-        own=Metric(MetricType.TIME, 10),
-        total=Metric(MetricType.TIME, 20),
+        label=AustinFrame(function="foo", filename="foo_module.py", line=10),
+        own=10,
+        total=20,
         height=0,
         children={
-            Frame("foobar", "foo_module.py", 5): FrameStats(
-                label=Frame("foobar", "foo_module.py", 5),
-                own=Metric(MetricType.TIME, 10),
-                total=Metric(MetricType.TIME, 10),
+            AustinFrame(
+                function="foobar", filename="foo_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="foo_module.py", line=5),
+                own=10,
+                total=10,
                 height=1,
             )
         },
     )
 
     frame_stats = deepcopy(ref_frame_stats) << FrameStats(
-        label=Frame("bar", "bar_module.py", 10),
-        own=Metric(MetricType.TIME, 10),
-        total=Metric(MetricType.TIME, 20),
+        label=AustinFrame(function="bar", filename="bar_module.py", line=10),
+        own=10,
+        total=20,
         height=0,
         children={
-            Frame("foobar", "bar_module.py", 5): FrameStats(
-                label=Frame("foobar", "bar_module.py", 5),
-                own=Metric(MetricType.TIME, 10),
-                total=Metric(MetricType.TIME, 10),
+            AustinFrame(
+                function="foobar", filename="bar_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="bar_module.py", line=5),
+                own=10,
+                total=10,
                 height=1,
             )
         },
@@ -65,43 +67,49 @@ def test_frame_stats_add_disjoint():
 
 def test_frame_stats_add_matching():
     frame_stats = FrameStats(
-        label=Frame("foo", "foo_module.py", 10),
-        own=Metric(MetricType.TIME, 10),
-        total=Metric(MetricType.TIME, 20),
+        label=AustinFrame(function="foo", filename="foo_module.py", line=10),
+        own=10,
+        total=20,
         height=0,
         children={
-            Frame("foobar", "foo_module.py", 5): FrameStats(
-                label=Frame("foobar", "foo_module.py", 5),
-                own=Metric(MetricType.TIME, 10),
-                total=Metric(MetricType.TIME, 10),
+            AustinFrame(
+                function="foobar", filename="foo_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="foo_module.py", line=5),
+                own=10,
+                total=10,
                 height=1,
             )
         },
     ) << FrameStats(
-        label=Frame("foo", "foo_module.py", 10),
-        own=Metric(MetricType.TIME, 0),
-        total=Metric(MetricType.TIME, 15),
+        label=AustinFrame(function="foo", filename="foo_module.py", line=10),
+        own=0,
+        total=15,
         height=0,
         children={
-            Frame("foobar", "foo_module.py", 5): FrameStats(
-                label=Frame("foobar", "foo_module.py", 5),
-                own=Metric(MetricType.TIME, 15),
-                total=Metric(MetricType.TIME, 15),
+            AustinFrame(
+                function="foobar", filename="foo_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="foo_module.py", line=5),
+                own=15,
+                total=15,
                 height=1,
             )
         },
     )
 
     assert frame_stats == FrameStats(
-        label=Frame("foo", "foo_module.py", 10),
-        own=Metric(MetricType.TIME, 10),
-        total=Metric(MetricType.TIME, 35),
+        label=AustinFrame(function="foo", filename="foo_module.py", line=10),
+        own=10,
+        total=35,
         height=0,
         children={
-            Frame("foobar", "foo_module.py", 5): FrameStats(
-                label=Frame("foobar", "foo_module.py", 5),
-                own=Metric(MetricType.TIME, 25),
-                total=Metric(MetricType.TIME, 25),
+            AustinFrame(
+                function="foobar", filename="foo_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="foo_module.py", line=5),
+                own=25,
+                total=25,
                 height=1,
             )
         },
@@ -110,49 +118,57 @@ def test_frame_stats_add_matching():
 
 def test_frame_stats_add_partial_matching():
     frame_stats = FrameStats(
-        label=Frame("foo", "foo_module.py", 10),
-        own=Metric(MetricType.TIME, 10),
-        total=Metric(MetricType.TIME, 20),
+        label=AustinFrame(function="foo", filename="foo_module.py", line=10),
+        own=10,
+        total=20,
         height=0,
         children={
-            Frame("foobar", "foo_module.py", 5): FrameStats(
-                label=Frame("foobar", "foo_module.py", 5),
-                own=Metric(MetricType.TIME, 10),
-                total=Metric(MetricType.TIME, 10),
+            AustinFrame(
+                function="foobar", filename="foo_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="foo_module.py", line=5),
+                own=10,
+                total=10,
                 height=1,
             )
         },
     ) << FrameStats(
-        label=Frame("foo", "foo_module.py", 10),
-        own=Metric(MetricType.TIME, 0),
-        total=Metric(MetricType.TIME, 15),
+        label=AustinFrame(function="foo", filename="foo_module.py", line=10),
+        own=0,
+        total=15,
         height=0,
         children={
-            Frame("foobar", "bar_module.py", 5): FrameStats(
-                label=Frame("foobar", "bar_module.py", 5),
-                own=Metric(MetricType.TIME, 15),
-                total=Metric(MetricType.TIME, 15),
+            AustinFrame(
+                function="foobar", filename="bar_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="bar_module.py", line=5),
+                own=15,
+                total=15,
                 height=1,
             )
         },
     )
 
     assert frame_stats == FrameStats(
-        label=Frame("foo", "foo_module.py", 10),
-        own=Metric(MetricType.TIME, 10),
-        total=Metric(MetricType.TIME, 35),
+        label=AustinFrame(function="foo", filename="foo_module.py", line=10),
+        own=10,
+        total=35,
         height=0,
         children={
-            Frame("foobar", "foo_module.py", 5): FrameStats(
-                label=Frame("foobar", "foo_module.py", 5),
-                own=Metric(MetricType.TIME, 10),
-                total=Metric(MetricType.TIME, 10),
+            AustinFrame(
+                function="foobar", filename="foo_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="foo_module.py", line=5),
+                own=10,
+                total=10,
                 height=1,
             ),
-            Frame("foobar", "bar_module.py", 5): FrameStats(
-                label=Frame("foobar", "bar_module.py", 5),
-                own=Metric(MetricType.TIME, 15),
-                total=Metric(MetricType.TIME, 15),
+            AustinFrame(
+                function="foobar", filename="bar_module.py", line=5
+            ): FrameStats(
+                label=AustinFrame(function="foobar", filename="bar_module.py", line=5),
+                own=15,
+                total=15,
                 height=1,
             ),
         },

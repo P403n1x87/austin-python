@@ -21,10 +21,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from pytest import raises
+import sys
+from pathlib import Path
 
-from austin import AustinError
-from austin import AustinTerminated
+import pytest
+
+from austin.errors import AustinError
 from austin.threads import ThreadedAustin
 
 
@@ -33,20 +35,20 @@ class TestThreadedAustin(ThreadedAustin):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._ready = False
+        self._metadata = False
         self._sample_received = False
         self._terminate = False
 
-    def on_ready(self, process, child_process, command_line):
-        assert process.pid != child_process.pid
-        assert "python" in self.get_command_line().lower()
-        self._ready = True
+    def on_metadata(self, metadata):
+        assert metadata
+        self._metadata = True
 
-    def on_sample_received(self, line):
-        assert line
+    def on_sample(self, sample):
+        assert sample
         self._sample_received = True
 
-    def on_terminate(self, data):
+    def on_terminate(self):
+        data = self._meta
         assert "duration" in data
         assert "errors" in data
         assert "sampling" in data
@@ -54,18 +56,18 @@ class TestThreadedAustin(ThreadedAustin):
         self._terminate = True
 
     def assert_callbacks_called(self):
-        assert self._ready and self._sample_received and self._terminate
+        assert self._metadata and self._sample_received and self._terminate
 
 
 class InvalidBinaryThreadedAustin(ThreadedAustin):
-    BINARY = "_austin"
+    BINARY = Path("_austin")
 
 
 def test_threaded():
     austin = TestThreadedAustin()
 
     austin.start(["-i", "1000", "python", "-c", "from time import sleep; sleep(2)"])
-    austin.join()
+    assert austin.wait() == 0
 
     austin.assert_callbacks_called()
 
@@ -73,12 +75,16 @@ def test_threaded():
     assert austin.python_version is not None
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32", reason="Signal handling not supported on Windows"
+)
 def test_threaded_terminate():
     austin = TestThreadedAustin()
 
     def sample_callback(*args):
+        if not austin._sample_received:
+            austin.terminate()
         austin._sample_received = True
-        austin.terminate()
 
     def terminate_callback(*args):
         austin._terminate = True
@@ -87,25 +93,26 @@ def test_threaded_terminate():
     austin._terminate_callback = terminate_callback
 
     austin.start(["-i", "100", "python", "-c", "from time import sleep; sleep(1)"])
-    with raises(AustinTerminated):
-        austin.join()
+
+    assert austin.wait() != 0
+
     austin.assert_callbacks_called()
 
 
 def test_threaded_invalid_binary():
     austin = InvalidBinaryThreadedAustin(sample_callback=lambda x: None)
     austin.start(["python"])
-    with raises(AustinError):
+    with pytest.raises(AustinError):
         austin.join()
 
 
 def test_threaded_no_sample_callback():
-    with raises(AustinError):
+    with pytest.raises(AustinError):
         InvalidBinaryThreadedAustin()
 
 
 def test_threaded_bad_options():
     austin = TestThreadedAustin(terminate_callback=lambda *args: None)
     austin.start(["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"])
-    with raises(AustinError):
+    with pytest.raises(AustinError):
         austin.join()

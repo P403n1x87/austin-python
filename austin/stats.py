@@ -28,13 +28,15 @@ from enum import Enum
 from threading import Lock
 from typing import Any
 from typing import Dict
+from typing import Generator
 from typing import List
 from typing import Optional
-from typing import TextIO
+from typing import Tuple
 
 from austin.events import AustinEventIterator
 from austin.events import AustinFrame
 from austin.events import AustinMetadata
+from austin.events import AustinMetrics
 from austin.events import AustinSample
 from austin.events import ProcessId
 from austin.events import ThreadName
@@ -42,6 +44,15 @@ from austin.format.collapsed_stack import AustinEventCollapsedStackFormatter
 
 
 COLLAPSED_STACK_FORMATTER = AustinEventCollapsedStackFormatter()
+
+
+class AustinStatsType(Enum):
+    """Austin stats type."""
+
+    WALL = "wall"
+    CPU = "cpu"
+    MEMORY_ALLOC = "memory_alloc"
+    MEMORY_DEALLOC = "memory_dealloc"
 
 
 @dataclass
@@ -87,7 +98,7 @@ class HierarchicalStats:
         """Get a child from the children collection."""
         return self.children[label]
 
-    def collapse(self, prefix: str = "") -> List[str]:
+    def collapse(self, stats_type: AustinStatsType) -> Generator[Any, None, None]:
         """Collapse the hierarchical statistics."""
         raise NotImplementedError()
 
@@ -100,19 +111,26 @@ class FrameStats(HierarchicalStats):
     height: int = 0
     children: Dict[AustinFrame, "FrameStats"] = field(default_factory=dict)  # type: ignore[assignment]
 
-    def collapse(self, prefix: str = "") -> List[str]:
+    def collapse(
+        self, stats_type: AustinStatsType
+    ) -> Generator[Tuple[List[AustinFrame], AustinMetrics], None, None]:
         """Collapse the hierarchical statistics."""
-        frame = COLLAPSED_STACK_FORMATTER.format(self.label)
+        frame = self.label
 
-        if not self.children:
-            return [f";{prefix}{frame} {self.own}"]
+        if self.own:
+            yield (
+                [frame],
+                AustinMetrics(time=self.own)
+                if stats_type in {AustinStatsType.CPU, AustinStatsType.WALL}
+                else AustinMetrics(memory=self.own),
+            )
 
-        own = [] if self.own == 0 else [f";{prefix}{frame} {self.own}"]
-        return own + [
-            f";{prefix}{frame}{rest}"
-            for _, child in self.children.items()
-            for rest in child.collapse()
-        ]
+        if self.children:
+            yield from (
+                ([frame, *rest], metric)
+                for child in self.children.values()
+                for rest, metric in child.collapse(stats_type)
+            )
 
 
 class ThreadStats(HierarchicalStats):
@@ -121,16 +139,26 @@ class ThreadStats(HierarchicalStats):
     label: ThreadName
     children: Dict[AustinFrame, FrameStats] = field(default_factory=dict)  # type: ignore[assignment]
 
-    def collapse(self, prefix: str = "") -> List[str]:
+    def collapse(
+        self, stats_type: AustinStatsType
+    ) -> Generator[Tuple[ThreadName, List[AustinFrame], AustinMetrics], None, None]:
         """Collapse the hierarchical statistics."""
-        if not self.children:
-            return [f";T{self.label} {self.own}"]
-        own = [] if self.own == 0 else [f";T{self.label} {self.own}"]
-        return own + [
-            f";T{self.label}{rest}"
-            for stats in self.children.values()
-            for rest in stats.collapse()
-        ]
+
+        if self.own:
+            yield (
+                self.label,
+                [],
+                AustinMetrics(time=self.own)
+                if stats_type in {AustinStatsType.CPU, AustinStatsType.WALL}
+                else AustinMetrics(memory=self.own),
+            )
+
+        if self.children:
+            yield from (
+                (self.label, frames, metric)
+                for stats in self.children.values()
+                for frames, metric in stats.collapse(stats_type)
+            )
 
 
 @dataclass
@@ -140,13 +168,21 @@ class ProcessStats:
     pid: ProcessId
     threads: Dict[ThreadName, ThreadStats] = field(default_factory=dict)
 
-    def collapse(self) -> List[str]:
+    def collapse(
+        self, stats_type: AustinStatsType
+    ) -> Generator[AustinSample, None, None]:
         """Collapse the hierarchical statistics."""
-        return [
-            f"P{self.pid}{rest}"
-            for _, thread in self.threads.items()
-            for rest in thread.collapse()
-        ]
+        yield from (
+            AustinSample(
+                pid=self.pid,
+                iid=thread_name.iid,
+                thread=thread_name.thread,
+                frames=tuple(frames),
+                metrics=metric,
+            )
+            for thread in self.threads.values()
+            for thread_name, frames, metric in thread.collapse(stats_type)
+        )
 
     def get_thread(self, thread_name: ThreadName) -> Optional[ThreadStats]:
         """Get thread statistics from this process by name.
@@ -155,15 +191,6 @@ class ProcessStats:
         statistics, then ``None`` is returned.
         """
         return self.threads.get(thread_name)
-
-
-class AustinStatsType(Enum):
-    """Austin stats type."""
-
-    WALL = "wall"
-    CPU = "cpu"
-    MEMORY_ALLOC = "memory_alloc"
-    MEMORY_DEALLOC = "memory_dealloc"
 
 
 @dataclass
@@ -189,19 +216,6 @@ class AustinStats:
         copy.__dict__.update(deepcopy(state))
 
         return copy
-
-    def dump(self, stream: TextIO) -> None:
-        """Dump the statistics to the given text stream."""
-        with self._lock:
-            stream.write(f"# mode: {self.stats_type.value.partition('_')[0]}\n\n")
-            for _, process in self.processes.items():
-                samples = process.collapse()
-
-                if all(sample.endswith(" 0 0") for sample in samples):
-                    samples = [sample[:-4] for sample in samples]
-
-                for sample in samples:
-                    stream.write(sample + "\n")
 
     def get_process(self, pid: ProcessId) -> ProcessStats:
         """Get process statistics for the given PID."""
@@ -272,7 +286,8 @@ class AustinStats:
             return
 
         pid = sample.pid
-        thread_stats = ThreadStats(sample.thread, own=0, total=metric)
+        thread_name = ThreadName(sample.thread, sample.iid or 0)
+        thread_stats = ThreadStats(thread_name, own=0, total=metric)
 
         # Convert the list of frames into a nested FrameStats instance
         stats: HierarchicalStats = thread_stats
@@ -285,12 +300,16 @@ class AustinStats:
 
         with self._lock:
             if pid not in self.processes:
-                self.processes[pid] = ProcessStats(pid, {sample.thread: thread_stats})
+                self.processes[pid] = ProcessStats(pid, {thread_name: thread_stats})
                 return
 
             process = self.processes[pid]
-            if sample.thread not in process.threads:
-                process.threads[sample.thread] = thread_stats
+            if thread_name not in process.threads:
+                process.threads[thread_name] = thread_stats
                 return
 
-            process.threads[sample.thread] << thread_stats
+            process.threads[thread_name] << thread_stats
+
+    def flatten(self) -> Generator[AustinSample, None, None]:
+        for process in self.processes.values():
+            yield from process.collapse(self.stats_type)

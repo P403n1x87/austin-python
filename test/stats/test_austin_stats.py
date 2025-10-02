@@ -25,6 +25,9 @@ import io
 from copy import deepcopy
 
 from austin.events import AustinFrame
+from austin.events import AustinMetrics
+from austin.events import AustinSample
+from austin.events import ThreadName
 from austin.format.collapsed_stack import AustinFileReader
 from austin.format.collapsed_stack import parse_collapsed_stack
 from austin.stats import AustinStats
@@ -51,8 +54,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "0x7f45645646": ThreadStats(
-                        label="0x7f45645646",
+                    ThreadName("0x7f45645646", 0): ThreadStats(
+                        label=ThreadName("0x7f45645646", 0),
                         own=0,
                         total=152,
                         children={
@@ -79,8 +82,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "0x7f45645646": ThreadStats(
-                        label="0x7f45645646",
+                    ThreadName("0x7f45645646", 0): ThreadStats(
+                        label=ThreadName("0x7f45645646", 0),
                         total=300,
                         own=148,
                         children={
@@ -107,8 +110,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "0x7f45645646": ThreadStats(
-                        label="0x7f45645646",
+                    ThreadName("0x7f45645646", 0): ThreadStats(
+                        label=ThreadName("0x7f45645646", 0),
                         total=400,
                         own=148,
                         children={
@@ -135,8 +138,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "0x7f45645646": ThreadStats(
-                        label="0x7f45645646",
+                    ThreadName("0x7f45645646", 0): ThreadStats(
+                        label=ThreadName("0x7f45645646", 0),
                         total=800,
                         own=148,
                         children={
@@ -172,8 +175,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "0x7f45645664": ThreadStats(
-                        label="0x7f45645664",
+                    ThreadName("0x7f45645664", 0): ThreadStats(
+                        label=ThreadName("0x7f45645664", 0),
                         own=0,
                         total=152,
                         children={
@@ -188,8 +191,8 @@ def test_austin_stats_single_process():
                             )
                         },
                     ),
-                    "0x7f45645646": ThreadStats(
-                        label="0x7f45645646",
+                    ThreadName("0x7f45645646", 0): ThreadStats(
+                        label=ThreadName("0x7f45645646", 0),
                         total=800,
                         own=148,
                         children={
@@ -219,7 +222,7 @@ def test_austin_stats_single_process():
     )
 
 
-def test_dump():
+def test_flatten():
     stats = AustinStats(AustinStatsType.WALL)
 
     EMPTY_SAMPLE = "P42;T0x7f45645646 1"
@@ -231,9 +234,63 @@ def test_dump():
     stats.update(parse_collapsed_stack(BAR_SAMPLE))
     stats.update(parse_collapsed_stack(EMPTY_SAMPLE))
 
-    buffer = io.StringIO()
-    stats.dump(buffer)
-    assert buffer.getvalue() == DUMP_LOAD_SAMPLES.format("P42;T0x7f45645646 1\n")
+    events = list(stats.flatten())
+
+    assert events == [
+        AustinSample(
+            pid=42,
+            iid=0,
+            thread="0x7f45645646",
+            metrics=AustinMetrics(time=1, memory=None),
+            frames=(),
+            gc=None,
+            idle=None,
+        ),
+        AustinSample(
+            pid=42,
+            iid=0,
+            thread="0x7f45645646",
+            metrics=AustinMetrics(time=300, memory=None),
+            frames=(
+                AustinFrame(
+                    filename="foo_module.py",
+                    function="foo",
+                    line=10,
+                    line_end=None,
+                    column=None,
+                    column_end=None,
+                ),
+            ),
+            gc=None,
+            idle=None,
+        ),
+        AustinSample(
+            pid=42,
+            iid=0,
+            thread="0x7f45645646",
+            metrics=AustinMetrics(time=1000, memory=None),
+            frames=(
+                AustinFrame(
+                    filename="foo_module.py",
+                    function="foo",
+                    line=10,
+                    line_end=None,
+                    column=None,
+                    column_end=None,
+                ),
+                AustinFrame(
+                    filename="bar_sample.py",
+                    function="bar",
+                    line=20,
+                    line_end=None,
+                    column=None,
+                    column_end=None,
+                ),
+            ),
+            gc=None,
+            idle=None,
+        ),
+    ]
 
 
 def test_load():
@@ -245,8 +302,8 @@ def test_load():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    "0x7f45645646": ThreadStats(
-                        label="0x7f45645646",
+                    ThreadName("0x7f45645646", 0): ThreadStats(
+                        label=ThreadName("0x7f45645646", 0),
                         own=0,
                         total=1300,
                         children={

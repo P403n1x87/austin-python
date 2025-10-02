@@ -33,12 +33,13 @@ from austin.format.mojo import MojoStreamReader
 __version__ = "0.1.0"
 
 
-def mojodbg(args: t.Any) -> None:
-    mojo = MojoStreamReader(args.input.expanduser().open("rb"))
+def mojodbg(mojo: MojoStreamReader, echo: bool = False) -> None:
     offset = 4
     last_event_data: t.Tuple[t.Optional[MojoEvent], int] = (None, 0)
     try:
         for e in mojo.parse():
+            if echo:
+                print(e)
             last_event_data = (e, offset)
             offset = mojo._offset + 1
     except Exception as exc:
@@ -63,10 +64,15 @@ def main() -> None:
     argp = ArgumentParser(prog="mojodbg", description="Debug MOJO files.")
 
     argp.add_argument("input", type=Path, help="The MOJO file to debug.")
+    argp.add_argument(
+        "-e", "echo", action="store_true", help="Echo all the MOJO events"
+    )
     argp.add_argument("-V", "--version", action="version", version=__version__)
 
+    args = argp.parse_args()
+
     try:
-        mojodbg(args := argp.parse_args())
+        mojodbg(MojoStreamReader(args.input.expanduser().open("rb")), args.echo)
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
         exit(2)

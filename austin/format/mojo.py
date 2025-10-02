@@ -1,7 +1,10 @@
+import abc
 import asyncio
+import io
 import typing as t
 from dataclasses import dataclass
 from dataclasses import field
+from dataclasses import fields
 from enum import Enum
 
 from austin.events import AustinEvent
@@ -76,12 +79,35 @@ class MojoEventHandler:
         ...
 
 
+@dataclass(frozen=True, eq=True)
 class MojoEvent:
     """MOJO event."""
 
-    def __init__(self) -> None:
-        """Initialize the event."""
-        self.raw = bytes([])
+    EVENT_ID: t.ClassVar = None
+
+    def ref(self) -> int:
+        return getattr(self, fields(self)[0].name)
+
+    def to_bytes(self) -> bytes:
+        buffer = bytearray([self.EVENT_ID])
+        for f in fields(self):
+            value = getattr(self, f.name)
+            field_type = (
+                f.type.__args__[0]
+                if isinstance(f.type, t._UnionGenericAlias)
+                else f.type
+            )
+            if field_type is str:
+                buffer += value.encode()
+                buffer += b"\x00"
+            elif field_type is int:
+                buffer += to_varint(value)
+            elif issubclass(field_type, MojoEvent):
+                buffer += to_varint(value.ref())
+            else:
+                msg = f"Invalid MOJO event field type {f.type}"
+                raise TypeError(msg)
+        return bytes(buffer)
 
 
 class MojoMetricType(str, Enum):
@@ -98,10 +124,23 @@ class MojoMetric(MojoEvent):
     metric_type: MojoMetricType
     value: int
 
+    def to_bytes(self) -> bytes:
+        buffer = bytearray(
+            [
+                MojoEvents.METRIC_TIME
+                if self.metric_type is MojoMetricType.TIME
+                else MojoEvents.METRIC_MEMORY
+            ]
+        )
+        buffer += to_varint(self.value)
+        return bytes(buffer)
+
 
 @dataclass(frozen=True, eq=True)
 class MojoString(MojoEvent):
     """MOJO string."""
+
+    EVENT_ID = MojoEvents.STRING
 
     key: int
     value: str
@@ -111,11 +150,15 @@ class MojoString(MojoEvent):
 class MojoStringReference(MojoEvent):
     """MOJO string reference."""
 
+    EVENT_ID = MojoEvents.STRING_REF
+
     string: MojoString
 
 
 class MojoIdle(MojoEvent):
     """MOJO idle event."""
+
+    EVENT_ID = MojoEvents.IDLE
 
     pass
 
@@ -123,6 +166,8 @@ class MojoIdle(MojoEvent):
 @dataclass(frozen=True, eq=True)
 class MojoMetadata(MojoEvent):
     """MOJO metadata."""
+
+    EVENT_ID = MojoEvents.METADATA
 
     key: str
     value: str
@@ -132,6 +177,8 @@ class MojoMetadata(MojoEvent):
 class MojoStack(MojoEvent):
     """MOJO stack."""
 
+    EVENT_ID = MojoEvents.STACK
+
     pid: int
     iid: int
     tid: str
@@ -140,6 +187,8 @@ class MojoStack(MojoEvent):
 @dataclass(frozen=True, eq=True)
 class MojoFrame(MojoEvent):
     """MOJO frame."""
+
+    EVENT_ID = MojoEvents.FRAME
 
     key: int
     filename: MojoString
@@ -154,6 +203,8 @@ class MojoFrame(MojoEvent):
 class MojoKernelFrame(MojoEvent):
     """MOJO kernel frame."""
 
+    EVENT_ID = MojoEvents.FRAME_KERNEL
+
     scope: str
 
 
@@ -161,12 +212,16 @@ class MojoKernelFrame(MojoEvent):
 class MojoSpecialFrame(MojoEvent):
     """MOJO special frame."""
 
+    EVENT_ID = MojoEvents.FRAME_INVALID
+
     label: str
 
 
 @dataclass(frozen=True, eq=True)
 class MojoFrameReference(MojoEvent):
     """MOJO frame reference."""
+
+    EVENT_ID = MojoEvents.FRAME_REF
 
     frame: MojoFrame
 
@@ -778,3 +833,120 @@ class AsyncMojoStreamReader(BaseMojoStreamReader):
                     yield self.samples[-1]
         if self._running_sample is not None:
             yield self._finalize_sample()
+
+
+class BaseMojoStreamWriter(abc.ABC):
+    HEADER = b"MOJ\x03"
+
+    def __init__(self, mojo: t.Any) -> None:
+        self.mojo = mojo
+        self._frames: t.Dict[AustinFrame, MojoFrame] = {}
+        self._strings: t.Dict[str, MojoString] = {
+            EMPTY.value: EMPTY,
+            UNKNOWN.value: UNKNOWN,
+        }
+
+        self._meta: t.Dict[str, str] = {}
+
+        self._mode: t.Optional[str] = None
+        self._gc = False
+
+        self._new_entries: t.List[MojoEvent] = []
+
+    def set_metadata(self, metadata: AustinMetadata) -> None:
+        self._meta[metadata.name] = metadata.value
+        if metadata.name == "gc" and metadata.value == "on":
+            self._gc = True
+        elif metadata.name == "mode":
+            self._mode = metadata.value
+
+    def resolve_string(self, value: str) -> MojoString:
+        try:
+            return self._strings[value]
+        except KeyError:
+            self._strings[value] = mojo_string = MojoString(len(self._strings), value)
+            self._new_entries.append(mojo_string)
+            return mojo_string
+
+    def resolve_frame(self, frame: AustinFrame) -> MojoFrame:
+        try:
+            return self._frames[frame]
+        except KeyError:
+            self._frames[frame] = mojo_frame = MojoFrame(
+                len(self._frames),
+                self.resolve_string(frame.filename),
+                self.resolve_string(frame.function),
+                frame.line,
+                frame.line_end or 0,
+                frame.column or 0,
+                frame.column_end or 0,
+            )
+            self._new_entries.append(mojo_frame)
+            return mojo_frame
+
+    @abc.abstractmethod
+    def write(self, event: AustinEvent) -> int: ...
+
+
+class MojoStreamWriter(BaseMojoStreamWriter):
+    def __init__(self, mojo: io.BytesIO):
+        super().__init__(mojo)
+
+        mojo.write(self.HEADER)
+
+    def write(self, event: AustinEvent) -> int:
+        size = 0
+
+        if isinstance(event, AustinMetadata):
+            self.set_metadata(event)
+            size += self.mojo.write(
+                MojoMetadata(key=event.name, value=event.value).to_bytes()
+            )
+
+        elif isinstance(event, AustinSample):
+            frames = (
+                [self.resolve_frame(f) for f in event.frames] if event.frames else []
+            )
+
+            size += self.mojo.write(
+                MojoStack(
+                    pid=event.pid, iid=event.iid or 0, tid=event.thread
+                ).to_bytes()
+            )
+
+            while self._new_entries:
+                size += self.mojo.write(self._new_entries.pop(0).to_bytes())
+
+            for frame in frames:
+                size += self.mojo.write(MojoFrameReference(frame).to_bytes())
+
+            if self._gc:
+                size += self.mojo.write(bytes([MojoEvents.GC]))
+
+            if self._mode == "full":
+                if event.idle:
+                    size += self.mojo.write(bytes([MojoEvents.IDLE]))
+                size += self.mojo.write(
+                    MojoMetric(MojoMetricType.TIME, event.metrics.time or 0).to_bytes()
+                )
+                size += self.mojo.write(
+                    MojoMetric(
+                        MojoMetricType.MEMORY, event.metrics.memory or 0
+                    ).to_bytes()
+                )
+            elif self._mode == "memory":
+                size += self.mojo.write(
+                    MojoMetric(
+                        MojoMetricType.MEMORY, event.metrics.memory or 0
+                    ).to_bytes()
+                )
+            else:
+                size += self.mojo.write(
+                    MojoMetric(MojoMetricType.TIME, event.metrics.time or 0).to_bytes()
+                )
+
+        else:
+            msg = f"Unhandled event type {type(event)}"
+            raise TypeError(msg)
+
+        return size

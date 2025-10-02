@@ -29,11 +29,18 @@ from random import randint
 
 import pytest
 
+from austin.events import AustinFrame
+from austin.events import AustinMetadata
+from austin.events import AustinMetrics
+from austin.events import AustinSample
 from austin.format.collapsed_stack import main
 from austin.format.mojo import MojoFrame
+from austin.format.mojo import MojoMetadata
 from austin.format.mojo import MojoStreamReader
+from austin.format.mojo import MojoStreamWriter
 from austin.format.mojo import MojoString
 from austin.format.mojo import to_varint
+from austin.tools.mojodbg import mojodbg
 
 
 HERE = Path(__file__).parent
@@ -156,3 +163,76 @@ def test_mojo_data():
 
         n_samples = len(m.samples)
         assert n_samples == 13227
+
+
+def test_mojo_writer():
+    buffer = BytesIO()
+    mojo_writer = MojoStreamWriter(buffer)
+
+    mojo_writer.write(original_meta := AustinMetadata("mode", "wall"))
+    for sample in (
+        original_samples := [
+            AustinSample(
+                pid=42,
+                iid=0,
+                thread="0x7f45645646",
+                metrics=AustinMetrics(time=1, memory=None),
+                frames=None,
+                gc=None,
+                idle=None,
+            ),
+            AustinSample(
+                pid=42,
+                iid=0,
+                thread="0x7f45645646",
+                metrics=AustinMetrics(time=300, memory=None),
+                frames=(
+                    AustinFrame(
+                        filename="foo_module.py",
+                        function="foo",
+                        line=10,
+                        line_end=0,
+                        column=0,
+                        column_end=0,
+                    ),
+                ),
+                gc=None,
+                idle=None,
+            ),
+            AustinSample(
+                pid=42,
+                iid=0,
+                thread="0x7f45645646",
+                metrics=AustinMetrics(time=1000, memory=None),
+                frames=(
+                    AustinFrame(
+                        filename="foo_module.py",
+                        function="foo",
+                        line=10,
+                        line_end=0,
+                        column=0,
+                        column_end=0,
+                    ),
+                    AustinFrame(
+                        filename="bar_sample.py",
+                        function="bar",
+                        line=20,
+                        line_end=0,
+                        column=0,
+                        column_end=0,
+                    ),
+                ),
+                gc=None,
+                idle=None,
+            ),
+        ]
+    ):
+        mojo_writer.write(sample)
+
+    buffer.seek(0)
+    mojo_reader = MojoStreamReader(buffer)
+
+    meta, *samples = mojo_reader
+
+    assert meta == original_meta
+    assert samples == original_samples

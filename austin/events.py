@@ -1,8 +1,9 @@
 import typing as t
+from collections import namedtuple
 from dataclasses import dataclass
 
 
-ThreadName = str
+ThreadName = namedtuple("ThreadName", ["thread", "iid"])
 ProcessId = int
 InterpreterId = int
 MicroSeconds = int

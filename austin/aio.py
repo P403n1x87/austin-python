@@ -68,7 +68,7 @@ class AsyncAustin(BaseAustin):
 
         async def main():
             austin = CollapsedStackAsyncAustin()
-            await austin.start(["-i", "10ms", "python3", "myscript.py"])
+            await austin.start(["-i", "10ms", "python", "myscript.py"])
             await austin.wait()
 
 

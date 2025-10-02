@@ -65,35 +65,34 @@ you covered. This is, for instance, how you would turn Austin into a Python
 application:
 
 ~~~ python
+import asyncio
+import sys
+
 from austin.aio import AsyncAustin
+from austin.format.collapsed_stack import AustinEventCollapsedStackFormatter
+
+FORMATTER = AustinEventCollapsedStackFormatter()
 
 
-# Make your sub-class of AsyncAustin
-class EchoAsyncAustin(AsyncAustin):
-    def on_ready(self, process, child_process, command_line):
-        print(f"Austin PID: {process.pid}")
-        print(f"Python PID: {child_process.pid}")
-        print(f"Command Line: {command_line}")
+class CollapsedStackAsyncAustin(AsyncAustin):
+    async def on_sample(self, sample):
+        print(FORMATTER.format(sample))
 
-    def on_sample_received(self, line):
-        print(line)
-
-    def on_terminate(self, data):
-        print(data)
+    async def on_metadata(self, metadata):
+        print(FORMATTER.format(metadata))
 
 
-# Use the Proactor event loop on Windows
 if sys.platform == "win32":
     asyncio.set_event_loop(asyncio.ProactorEventLoop())
 
-try:
-    # Start the Austin application with some command line arguments
-    austin = EchoAsyncAustin()
-    asyncio.get_event_loop().run_until_complete(
-        austin.start(["-i", "10000", "python3", "myscript.py"])
-    )
-except (KeyboardInterrupt, asyncio.CancelledError):
-    pass
+
+async def main():
+    austin = CollapsedStackAsyncAustin()
+    await austin.start(["-i", "10ms", "python", "myscript.py"])
+    await austin.wait()
+
+
+asyncio.run(main())
 ~~~
 
 The `austin-python` package is at the heart of the [Austin

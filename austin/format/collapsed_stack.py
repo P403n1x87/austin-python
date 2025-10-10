@@ -48,7 +48,7 @@ def parse_frame(frame: str) -> AustinFrame:
         filename, function, line = frame.rsplit(":", maxsplit=2)
     except ValueError:
         raise InvalidFrame(frame) from None
-    return AustinFrame(filename=filename, function=function, line=int(line))
+    return AustinFrame(filename=filename, function=function, line=int(line or 0))
 
 
 def parse_collapsed_stack(sample: str) -> AustinSample:

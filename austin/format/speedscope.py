@@ -26,6 +26,7 @@ from dataclasses import asdict
 from dataclasses import dataclass
 from dataclasses import field
 from enum import Enum
+from pathlib import Path
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -33,13 +34,14 @@ from typing import TextIO
 from typing import Union
 
 from austin.events import AustinFrame
+from austin.events import AustinMetadata
 from austin.events import AustinSample
 from austin.format import Mode
 from austin.format.collapsed_stack import AustinFileReader
 from austin.format.collapsed_stack import InvalidSample
 
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 SpeedscopeJson = Dict
 SpeedscopeWeight = int
@@ -208,11 +210,11 @@ def main() -> None:
 
     arg_parser.add_argument(
         "input",
-        type=str,
+        type=Path,
         help="The input file containing Austin samples in normal format.",
     )
     arg_parser.add_argument(
-        "output", type=str, help="The name of the output Speedscope JSON file."
+        "output", type=Path, help="The name of the output Speedscope JSON file."
     )
     arg_parser.add_argument(
         "--indent", type=int, help="Give a non-null value to prettify the JSON output."
@@ -223,23 +225,29 @@ def main() -> None:
     args = arg_parser.parse_args()
 
     try:
-        with AustinFileReader(args.input) as fin:
-            mode = fin.metadata["mode"]
-            speedscope = Speedscope(os.path.basename(args.input), mode, args.indent)
+        with args.input.open() as austin, AustinFileReader(austin) as fin:
+            speedscope = None
             for event in fin:
-                if not isinstance(event, AustinSample):
-                    continue
-                try:
-                    speedscope.add_sample(event)
-                except InvalidSample:
-                    continue
+                if isinstance(event, AustinMetadata):
+                    if event.name == "mode":
+                        speedscope = Speedscope(
+                            os.path.basename(args.input), event.value, args.indent
+                        )
+                elif isinstance(event, AustinSample):
+                    if speedscope is not None:
+                        speedscope.add_sample(event)
+                else:
+                    raise ValueError("Invalid sample found in input file")
+
+        if speedscope is None:
+            raise RuntimeError("Invalid input file: no mode metadata found")
+
+        with args.output.open("w") as fout:
+            speedscope.dump(fout)
 
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
         exit(1)
-
-    with open(args.output, "w") as fout:
-        speedscope.dump(fout)
 
 
 if __name__ == "__main__":

@@ -22,6 +22,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from argparse import ArgumentParser
+from pathlib import Path
 
 from austin.events import AustinMetadata
 from austin.events import AustinSample
@@ -41,19 +42,21 @@ def main() -> None:
 
     arg_parser.add_argument(
         "input",
-        type=str,
+        type=Path,
         help="The input file containing Austin samples.",
     )
     arg_parser.add_argument(
-        "output", type=str, help="The name of the output pprof file."
+        "output",
+        type=Path,
+        help="The name of the output pprof file.",
     )
 
-    arg_parser.add_argument("-V", "--version", action="version", version="0.2.0")
+    arg_parser.add_argument("-V", "--version", action="version", version="0.2.1")
 
     args = arg_parser.parse_args()
 
     try:
-        with AustinFileReader(args.input) as fin:
+        with args.input.open() as austin, AustinFileReader(austin) as fin:
             pprof = None
             for e in fin:
                 if isinstance(e, AustinMetadata) and e.name == "mode":

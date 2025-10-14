@@ -277,7 +277,12 @@ def str_reader() -> t.Generator[t.Optional[str], bytes, str]:
             (b,) = yield bytes(buffer[:i]).decode(errors="replace")
             i = 0
         else:
-            buffer[i] = b
+            try:
+                buffer[i] = b
+            except IndexError:
+                # Expand the buffer if needed
+                buffer += bytearray(i - len(buffer) + 1)
+                buffer[i] = b
             (b,) = yield None
             i += 1
 

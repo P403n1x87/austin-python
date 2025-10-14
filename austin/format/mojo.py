@@ -353,6 +353,14 @@ class BaseMojoStreamReader(AustinEventIterator):
 
         return metadata
 
+    @property
+    def mode(self) -> t.Optional[str]:
+        return self.metadata.get("mode")
+
+    @property
+    def gc(self) -> t.Optional[str]:
+        return self.metadata.get("gc")
+
     def _finalize_sample(self) -> AustinSample:
         """Finalize the current sample."""
         assert self._running_sample is not None, self._running_sample
@@ -395,7 +403,13 @@ class BaseMojoStreamReader(AustinEventIterator):
         if self._running_sample is not None:
             self._finalize_sample()
 
-        self._running_sample = _RunningSample(pid=pid, iid=iid, thread=thread)
+        self._running_sample = _RunningSample(
+            pid=pid,
+            iid=iid,
+            thread=thread,
+            idle=False if self.mode == "full" else None,
+            gc=False if self.gc is not None else None,
+        )
 
         return MojoStack(pid, iid if iid is not None else -1, thread)
 

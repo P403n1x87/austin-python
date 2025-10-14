@@ -21,19 +21,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import io
 from copy import deepcopy
+import io
 
 from austin.events import AustinFrame
 from austin.events import AustinMetrics
 from austin.events import AustinSample
-from austin.events import ThreadName
 from austin.format.collapsed_stack import AustinFileReader
 from austin.format.collapsed_stack import parse_collapsed_stack
 from austin.stats import AustinStats
 from austin.stats import AustinStatsType
 from austin.stats import FrameStats
 from austin.stats import ProcessStats
+from austin.stats import ThreadInfo
 from austin.stats import ThreadStats
 
 
@@ -54,8 +54,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    ThreadName("0x7f45645646", 0): ThreadStats(
-                        label=ThreadName("0x7f45645646", 0),
+                    ThreadInfo("0x7f45645646", 0): ThreadStats(
+                        label=ThreadInfo("0x7f45645646", 0),
                         own=0,
                         total=152,
                         children={
@@ -82,8 +82,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    ThreadName("0x7f45645646", 0): ThreadStats(
-                        label=ThreadName("0x7f45645646", 0),
+                    ThreadInfo("0x7f45645646", 0): ThreadStats(
+                        label=ThreadInfo("0x7f45645646", 0),
                         total=300,
                         own=148,
                         children={
@@ -110,8 +110,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    ThreadName("0x7f45645646", 0): ThreadStats(
-                        label=ThreadName("0x7f45645646", 0),
+                    ThreadInfo("0x7f45645646", 0): ThreadStats(
+                        label=ThreadInfo("0x7f45645646", 0),
                         total=400,
                         own=148,
                         children={
@@ -138,8 +138,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    ThreadName("0x7f45645646", 0): ThreadStats(
-                        label=ThreadName("0x7f45645646", 0),
+                    ThreadInfo("0x7f45645646", 0): ThreadStats(
+                        label=ThreadInfo("0x7f45645646", 0),
                         total=800,
                         own=148,
                         children={
@@ -175,8 +175,8 @@ def test_austin_stats_single_process():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    ThreadName("0x7f45645664", 0): ThreadStats(
-                        label=ThreadName("0x7f45645664", 0),
+                    ThreadInfo("0x7f45645664", 0): ThreadStats(
+                        label=ThreadInfo("0x7f45645664", 0),
                         own=0,
                         total=152,
                         children={
@@ -191,8 +191,8 @@ def test_austin_stats_single_process():
                             )
                         },
                     ),
-                    ThreadName("0x7f45645646", 0): ThreadStats(
-                        label=ThreadName("0x7f45645646", 0),
+                    ThreadInfo("0x7f45645646", 0): ThreadStats(
+                        label=ThreadInfo("0x7f45645646", 0),
                         total=800,
                         own=148,
                         children={
@@ -302,8 +302,8 @@ def test_load():
             42: ProcessStats(
                 pid=42,
                 threads={
-                    ThreadName("0x7f45645646", 0): ThreadStats(
-                        label=ThreadName("0x7f45645646", 0),
+                    ThreadInfo("0x7f45645646", 0): ThreadStats(
+                        label=ThreadInfo("0x7f45645646", 0),
                         own=0,
                         total=1300,
                         children={

@@ -21,6 +21,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+from collections import namedtuple
 from copy import deepcopy
 from dataclasses import dataclass
 from dataclasses import field
@@ -39,8 +40,10 @@ from austin.events import AustinMetadata
 from austin.events import AustinMetrics
 from austin.events import AustinSample
 from austin.events import ProcessId
-from austin.events import ThreadName
 from austin.format.collapsed_stack import AustinEventCollapsedStackFormatter
+
+
+ThreadInfo = namedtuple("ThreadInfo", ["thread", "iid"])
 
 
 COLLAPSED_STACK_FORMATTER = AustinEventCollapsedStackFormatter()
@@ -136,12 +139,12 @@ class FrameStats(HierarchicalStats):
 class ThreadStats(HierarchicalStats):
     """Thread statistics."""
 
-    label: ThreadName
+    label: ThreadInfo
     children: Dict[AustinFrame, FrameStats] = field(default_factory=dict)  # type: ignore[assignment]
 
     def collapse(
         self, stats_type: AustinStatsType
-    ) -> Generator[Tuple[ThreadName, List[AustinFrame], AustinMetrics], None, None]:
+    ) -> Generator[Tuple[ThreadInfo, List[AustinFrame], AustinMetrics], None, None]:
         """Collapse the hierarchical statistics."""
 
         if self.own:
@@ -166,7 +169,7 @@ class ProcessStats:
     """Process statistics."""
 
     pid: ProcessId
-    threads: Dict[ThreadName, ThreadStats] = field(default_factory=dict)
+    threads: Dict[ThreadInfo, ThreadStats] = field(default_factory=dict)
 
     def collapse(
         self, stats_type: AustinStatsType
@@ -175,22 +178,22 @@ class ProcessStats:
         yield from (
             AustinSample(
                 pid=self.pid,
-                iid=thread_name.iid,
-                thread=thread_name.thread,
+                iid=thread_info.iid,
+                thread=thread_info.thread,
                 frames=tuple(frames),
                 metrics=metric,
             )
             for thread in self.threads.values()
-            for thread_name, frames, metric in thread.collapse(stats_type)
+            for thread_info, frames, metric in thread.collapse(stats_type)
         )
 
-    def get_thread(self, thread_name: ThreadName) -> Optional[ThreadStats]:
+    def get_thread(self, thread_info: ThreadInfo) -> Optional[ThreadStats]:
         """Get thread statistics from this process by name.
 
         If the given thread name is not registered with this current process
         statistics, then ``None`` is returned.
         """
-        return self.threads.get(thread_name)
+        return self.threads.get(thread_info)
 
 
 @dataclass
@@ -286,8 +289,8 @@ class AustinStats:
             return
 
         pid = sample.pid
-        thread_name = ThreadName(sample.thread, sample.iid or 0)
-        thread_stats = ThreadStats(thread_name, own=0, total=metric)
+        thread_info = ThreadInfo(sample.thread, sample.iid or 0)
+        thread_stats = ThreadStats(thread_info, own=0, total=metric)
 
         # Convert the list of frames into a nested FrameStats instance
         stats: HierarchicalStats = thread_stats
@@ -300,15 +303,15 @@ class AustinStats:
 
         with self._lock:
             if pid not in self.processes:
-                self.processes[pid] = ProcessStats(pid, {thread_name: thread_stats})
+                self.processes[pid] = ProcessStats(pid, {thread_info: thread_stats})
                 return
 
             process = self.processes[pid]
-            if thread_name not in process.threads:
-                process.threads[thread_name] = thread_stats
+            if thread_info not in process.threads:
+                process.threads[thread_info] = thread_stats
                 return
 
-            process.threads[thread_name] << thread_stats
+            process.threads[thread_info] << thread_stats
 
     def flatten(self) -> Generator[AustinSample, None, None]:
         for process in self.processes.values():

@@ -1,6 +1,6 @@
-import typing as t
 from functools import singledispatchmethod
 from pathlib import Path
+import typing as t
 
 from austin.events import AustinEvent
 from austin.events import AustinEventIterator

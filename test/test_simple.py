@@ -101,6 +101,18 @@ def assert_binary_path(path: Path):
     assert Path(TestSimpleAustin().binary_path).resolve() == path.resolve()
 
 
+def test_simple_terminate_not_running():
+    austin = TestSimpleAustin()
+    with raises(AustinError):
+        austin.terminate()
+
+
+def test_simple_wait_not_running():
+    austin = TestSimpleAustin()
+    with raises(AustinError):
+        austin.wait()
+
+
 def test_binary_path_cwd():
     with tempfile.TemporaryDirectory() as tempdir:
         old_cwd = Path.cwd()

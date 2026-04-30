@@ -16,3 +16,7 @@ from austin.base import _to_semver
 )
 def test_semver(version, semver):
     assert _to_semver(version) == semver
+
+
+def test_semver_none():
+    assert _to_semver(None) == (0, 0, 0)

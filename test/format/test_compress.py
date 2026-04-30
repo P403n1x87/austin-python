@@ -23,9 +23,13 @@
 
 import io
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from austin.format.collapsed_stack import AustinFileReader
 from austin.format.compress import compress
+from austin.format.compress import main
 
 
 def test_compress(datapath: Path):
@@ -58,3 +62,32 @@ def test_compress_counts(datapath: Path):
             print(compressed.getvalue())
             msg = "Expected sample not found in compressed output"
             raise AssertionError(msg)
+
+
+def test_compress_main(datapath: Path, tmp_path: Path):
+    output = tmp_path / "output.out"
+    with patch(
+        "sys.argv", ["austin-compress", str(datapath / "austin.out"), str(output)]
+    ):
+        main()
+    assert output.exists()
+    assert output.stat().st_size > 0
+
+
+def test_compress_main_counts(datapath: Path, tmp_path: Path):
+    output = tmp_path / "output_counts.out"
+    with patch(
+        "sys.argv",
+        ["austin-compress", "--counts", str(datapath / "austin.out"), str(output)],
+    ):
+        main()
+    assert output.exists()
+
+
+def test_compress_main_missing_file(tmp_path: Path):
+    missing = tmp_path / "nonexistent.out"
+    output = tmp_path / "out.out"
+    with patch("sys.argv", ["austin-compress", str(missing), str(output)]):
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1

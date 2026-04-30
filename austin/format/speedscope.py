@@ -38,8 +38,6 @@ from austin.events import AustinMetadata
 from austin.events import AustinSample
 from austin.format import Mode
 from austin.format.collapsed_stack import AustinFileReader
-from austin.format.collapsed_stack import InvalidSample
-
 
 __version__ = "0.3.1"
 

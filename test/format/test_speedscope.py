@@ -32,7 +32,6 @@ from austin.format.speedscope import Speedscope
 from austin.format.speedscope import SpeedscopeFrame
 from austin.format.speedscope import SpeedscopeProfile
 
-
 _SPEEDSCOPE_FILE_FIELDS = ("$schema", "shared", "profiles", "name", "exporter")
 _SPEEDSCOPE_SCHEMA_URL = "https://www.speedscope.app/file-format-schema.json"
 _SPEEDSCOPE_FRAME_FIELDS = tuple([field.name for field in fields(SpeedscopeFrame)])

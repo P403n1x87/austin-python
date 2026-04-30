@@ -1,6 +1,5 @@
 import abc
 import asyncio
-import io
 import typing as t
 from dataclasses import dataclass
 from dataclasses import field
@@ -917,7 +916,7 @@ class BaseMojoStreamWriter(abc.ABC):
 class MojoStreamWriter(BaseMojoStreamWriter):
     """MOJO stream writer."""
 
-    def __init__(self, mojo: io.BytesIO) -> None:
+    def __init__(self, mojo: t.BinaryIO) -> None:
         super().__init__(mojo)
 
         mojo.write(self.HEADER)
@@ -948,7 +947,7 @@ class MojoStreamWriter(BaseMojoStreamWriter):
             for frame in frames:
                 size += self.mojo.write(MojoFrameReference(frame).to_bytes())
 
-            if self._gc:
+            if event.gc:
                 size += self.mojo.write(bytes([MojoEvents.GC]))
 
             if self._mode == "full":

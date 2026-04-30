@@ -29,7 +29,6 @@ import pytest
 
 from austin.tools.resolve import main
 
-
 HERE = Path(__file__).parent
 DATA = HERE.parent / "data"
 

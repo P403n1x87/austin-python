@@ -33,7 +33,6 @@ from austin.format import Mode
 from austin.format.pprof.profile_pb2 import Profile
 from austin.format.pprof.profile_pb2 import Sample
 
-
 PROCESS_ID_LABEL = "Process ID"
 THREAD_ID_LABEL = "Thread ID"
 INTERPRETER_ID_LABEL = "Interpreter ID"

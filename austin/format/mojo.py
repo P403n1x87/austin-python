@@ -84,6 +84,7 @@ class MojoEvent:
     """MOJO event."""
 
     EVENT_ID: t.ClassVar = None
+    raw: t.ClassVar[bytes] = b""
 
     def ref(self) -> int:
         return getattr(self, fields(self)[0].name)
@@ -93,9 +94,7 @@ class MojoEvent:
         for f in fields(self):
             value = getattr(self, f.name)
             field_type = (
-                f.type.__args__[0]
-                if isinstance(f.type, t._UnionGenericAlias)
-                else f.type
+                t.get_args(f.type)[0] if t.get_origin(f.type) is t.Union else f.type
             )
             if field_type is str:
                 buffer += value.encode()
@@ -127,9 +126,11 @@ class MojoMetric(MojoEvent):
     def to_bytes(self) -> bytes:
         buffer = bytearray(
             [
-                MojoEvents.METRIC_TIME
-                if self.metric_type is MojoMetricType.TIME
-                else MojoEvents.METRIC_MEMORY
+                (
+                    MojoEvents.METRIC_TIME
+                    if self.metric_type is MojoMetricType.TIME
+                    else MojoEvents.METRIC_MEMORY
+                )
             ]
         )
         buffer += to_varint(self.value)
@@ -381,19 +382,21 @@ class BaseMojoStreamReader(AustinEventIterator):
                         for metric_type, metric in self._running_sample.metrics.items()
                     }
                 ),
-                frames=tuple(
-                    AustinFrame(
-                        filename=mf.filename.value,
-                        function=mf.scope.value,
-                        line=mf.line,
-                        line_end=mf.line_end,
-                        column=mf.column,
-                        column_end=mf.column_end,
+                frames=(
+                    tuple(
+                        AustinFrame(
+                            filename=mf.filename.value,
+                            function=mf.scope.value,
+                            line=mf.line,
+                            line_end=mf.line_end,
+                            column=mf.column,
+                            column_end=mf.column_end,
+                        )
+                        for mf in self._running_sample.frames
                     )
-                    for mf in self._running_sample.frames
-                )
-                if self._running_sample.frames
-                else None,
+                    if self._running_sample.frames
+                    else None
+                ),
                 gc=self._running_sample.gc,
                 idle=self._running_sample.idle,
             )
@@ -670,7 +673,9 @@ class MojoStreamReader(BaseMojoStreamReader):
         if self._running_sample is not None:
             yield self._finalize_sample()
 
-    def hexdump(self, start: int, end: int, highlight: t.Set[int] = set()) -> None:  # noqa: B006
+    def hexdump(
+        self, start: int, end: int, highlight: t.Set[int] = set()  # noqa: B006
+    ) -> None:
         """Print a hexdump of the MOJO file."""
         self.mojo.seek(start)
         data = self.mojo.read(end - start)
@@ -855,6 +860,8 @@ class AsyncMojoStreamReader(BaseMojoStreamReader):
 
 
 class BaseMojoStreamWriter(abc.ABC):
+    """Base class for MOJO stream writers."""
+
     HEADER = b"MOJ\x03"
 
     def __init__(self, mojo: t.Any) -> None:
@@ -904,11 +911,13 @@ class BaseMojoStreamWriter(abc.ABC):
             return mojo_frame
 
     @abc.abstractmethod
-    def write(self, event: AustinEvent) -> int: ...
+    def write(self, event: AustinEvent) -> int: ...  # noqa: E704
 
 
 class MojoStreamWriter(BaseMojoStreamWriter):
-    def __init__(self, mojo: io.BytesIO):
+    """MOJO stream writer."""
+
+    def __init__(self, mojo: io.BytesIO) -> None:
         super().__init__(mojo)
 
         mojo.write(self.HEADER)

@@ -33,7 +33,6 @@ from austin.errors import AustinError
 from austin.events import AustinMetadata
 from austin.events import AustinSample
 
-
 if sys.platform == "win32":
     loop = asyncio.ProactorEventLoop()
     asyncio.set_event_loop(loop)

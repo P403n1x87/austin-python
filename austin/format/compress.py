@@ -62,9 +62,11 @@ def compress(source: AustinFileReader, dest: TextIO, counts: bool = False) -> No
         formatter.format(
             AustinSample.from_key_and_metrics(
                 key,
-                AustinMetrics(memory=metrics)
-                if is_memory
-                else AustinMetrics(time=metrics),
+                (
+                    AustinMetrics(memory=metrics)
+                    if is_memory
+                    else AustinMetrics(time=metrics)
+                ),
             )
         )
         + "\n"

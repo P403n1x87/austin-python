@@ -24,6 +24,7 @@
 import asyncio
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 import pytest
 from pytest import raises
@@ -159,3 +160,25 @@ async def test_async_bad_options():
         await austin.start(
             ["-I", "1000", "python", "-c", "for i in range(1000000): print(i)"]
         )
+
+
+def test_async_terminate_not_running():
+    austin = TestAsyncAustin()
+    with raises(AustinError):
+        austin.terminate()
+
+
+def test_async_terminate_process_already_gone():
+    austin = TestAsyncAustin()
+    mock_proc = MagicMock()
+    mock_proc.terminate.side_effect = ProcessLookupError
+    austin._proc = mock_proc
+    with raises(AustinError):
+        austin.terminate()
+
+
+@pytest.mark.asyncio
+async def test_async_wait_not_running():
+    austin = TestAsyncAustin()
+    with raises(AustinError):
+        await austin.wait()

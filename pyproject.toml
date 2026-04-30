@@ -65,6 +65,7 @@ austin2speedscope = "austin.format.speedscope:main"
 mojo2austin = "austin.format.collapsed_stack:main"
 austinp-resolve = "austin.tools.resolve:main"
 mojodbg = "austin.tools.mojodbg:main"
+mojo-compress = "austin.format.mojo_compress:main"
 
 [tool.hatch.envs.tests]
 template = "tests"

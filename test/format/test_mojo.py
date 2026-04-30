@@ -44,7 +44,7 @@ HERE = Path(__file__).parent
 DATA = HERE.parent / "data"
 
 
-@pytest.mark.parametrize("case", ["test", "mp"])
+@pytest.mark.parametrize("case", ["test", "mp", "repeat"])
 def test_mojo_snapshot(case):
     input = (DATA / case).with_suffix(".mojo")
     output = Path(tempfile.NamedTemporaryFile().name).with_suffix(".austin")

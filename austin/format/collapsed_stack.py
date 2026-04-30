@@ -1,6 +1,6 @@
+import typing as t
 from functools import singledispatchmethod
 from pathlib import Path
-import typing as t
 
 from austin.events import AustinEvent
 from austin.events import AustinEventIterator
@@ -9,7 +9,6 @@ from austin.events import AustinMetadata
 from austin.events import AustinMetrics
 from austin.events import AustinSample
 from austin.format.mojo import MojoStreamReader
-
 
 __version__ = "0.1.0"
 
@@ -66,17 +65,17 @@ def parse_collapsed_stack(sample: str) -> AustinSample:
         raise InvalidSample(sample)
 
     if sample[0] != "P":
-        raise InvalidSample(f"No process ID in sample '{sample}'")
+        raise InvalidSample(f"No process ID in sample {sample!r}")
 
     head, _, metrics = sample.rpartition(" ")
     process, _, rest = head.partition(";")
     try:
         pid = int(process[1:])
     except ValueError:
-        raise InvalidSample(f"Invalid process ID in sample '{sample}'") from None
+        raise InvalidSample(f"Invalid process ID in sample {sample!r}") from None
 
     if rest[0] != "T":
-        raise InvalidSample(f"No thread ID in sample '{sample}'")
+        raise InvalidSample(f"No thread ID in sample {sample!r}")
 
     thread, _, frames_data = rest.partition(";")
     thread = thread[1:]

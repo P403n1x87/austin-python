@@ -29,7 +29,6 @@ from traceback import print_exc
 from austin.format.mojo import MojoEvent
 from austin.format.mojo import MojoStreamReader
 
-
 __version__ = "0.1.0"
 
 

@@ -30,8 +30,10 @@ from typing import TextIO
 from typing import Tuple
 
 from austin.events import AustinFrame
+from austin.events import AustinMetrics
+from austin.format.collapsed_stack import InvalidSample
+from austin.format.collapsed_stack import parse_collapsed_stack
 from austin.format.compress import compress
-
 
 FoldedStack = List[AustinFrame]
 
@@ -41,7 +43,7 @@ def _similarities(
 ) -> List[Tuple[Tuple[int, int], float]]:
     """O(n * log(n)), n = len(x) * len(y)."""
 
-    def score(a: List[Frame], b: List[Frame]) -> float:
+    def score(a: List[AustinFrame], b: List[AustinFrame]) -> float:
         """Score two folded stacks."""
         if not len(a) and not len(b):
             return 1
@@ -90,12 +92,12 @@ def diff(a: TextIO, b: TextIO) -> str:
         compress(source, _)
         return _.getvalue()
 
-    def get_frames(text: str) -> List[Tuple[FoldedStack, Metric]]:
+    def get_frames(text: str) -> List[Tuple[FoldedStack, AustinMetrics]]:
         """Get the folded stacks and metrics from a string of samples."""
         x = []
         for _ in text.splitlines(keepends=False):
             try:
-                sample = Sample.parse(_)
+                sample = parse_collapsed_stack(_)
                 x.append((sample.frames, sample.metrics))
             except InvalidSample:
                 continue

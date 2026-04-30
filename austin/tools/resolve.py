@@ -30,7 +30,6 @@ from austin.format.mojo import MojoStreamReader
 from austin.format.mojo import MojoString
 from austin.format.mojo import to_varint
 
-
 __version__ = "0.2.0"
 
 
@@ -176,8 +175,10 @@ def resolve_mojo(input: str, output: str) -> None:
                     filename, scope, line = resolved
                     new_value = filename or scope
 
-                    event.raw = event.raw.replace(
-                        event.value.encode(), new_value.encode()
+                    object.__setattr__(
+                        event,
+                        "raw",
+                        event.raw.replace(event.value.encode(), new_value.encode()),
                     )
 
                     if filename is not None:
@@ -185,9 +186,11 @@ def resolve_mojo(input: str, output: str) -> None:
 
             elif isinstance(event, MojoFrame):
                 if event.filename.key in maps.lines:
-                    event.raw = (
+                    object.__setattr__(
+                        event,
+                        "raw",
                         event.raw[: -len(to_varint(event.line))]
-                        + maps.lines[event.filename.key]
+                        + maps.lines[event.filename.key],
                     )
 
             fout.write(event.raw)

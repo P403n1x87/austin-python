@@ -62,9 +62,11 @@ def compress(source: AustinFileReader, dest: TextIO, counts: bool = False) -> No
         formatter.format(
             AustinSample.from_key_and_metrics(
                 key,
-                AustinMetrics(memory=metrics)
-                if is_memory
-                else AustinMetrics(time=metrics),
+                (
+                    AustinMetrics(memory=metrics)
+                    if is_memory
+                    else AustinMetrics(time=metrics)
+                ),
             )
         )
         + "\n"
@@ -108,10 +110,10 @@ def main() -> None:
 
     try:
         with (
-            AustinFileReader(args.input) as fin,
+            open(args.input) as _fin,
             open(args.output or args.input, "w") as fout,
         ):
-            compress(fin, fout, args.counts)
+            compress(AustinFileReader(_fin), fout, args.counts)
     except FileNotFoundError:
         print(f"No such input file: {args.input}")
         exit(1)

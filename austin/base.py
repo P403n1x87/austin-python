@@ -43,7 +43,6 @@ from austin.errors import AustinError
 from austin.events import AustinMetadata
 from austin.events import AustinSample
 
-
 SemVer = Tuple[int, int, int]
 
 

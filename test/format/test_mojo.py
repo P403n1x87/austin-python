@@ -35,13 +35,10 @@ from austin.events import AustinMetrics
 from austin.events import AustinSample
 from austin.format.collapsed_stack import main
 from austin.format.mojo import MojoFrame
-from austin.format.mojo import MojoMetadata
 from austin.format.mojo import MojoStreamReader
 from austin.format.mojo import MojoStreamWriter
 from austin.format.mojo import MojoString
 from austin.format.mojo import to_varint
-from austin.tools.mojodbg import mojodbg
-
 
 HERE = Path(__file__).parent
 DATA = HERE.parent / "data"

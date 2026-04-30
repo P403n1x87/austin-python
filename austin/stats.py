@@ -42,7 +42,6 @@ from austin.events import AustinSample
 from austin.events import ProcessId
 from austin.format.collapsed_stack import AustinEventCollapsedStackFormatter
 
-
 ThreadInfo = namedtuple("ThreadInfo", ["thread", "iid"])
 
 
@@ -123,9 +122,11 @@ class FrameStats(HierarchicalStats):
         if self.own:
             yield (
                 [frame],
-                AustinMetrics(time=self.own)
-                if stats_type in {AustinStatsType.CPU, AustinStatsType.WALL}
-                else AustinMetrics(memory=self.own),
+                (
+                    AustinMetrics(time=self.own)
+                    if stats_type in {AustinStatsType.CPU, AustinStatsType.WALL}
+                    else AustinMetrics(memory=self.own)
+                ),
             )
 
         if self.children:
@@ -146,14 +147,15 @@ class ThreadStats(HierarchicalStats):
         self, stats_type: AustinStatsType
     ) -> Generator[Tuple[ThreadInfo, List[AustinFrame], AustinMetrics], None, None]:
         """Collapse the hierarchical statistics."""
-
         if self.own:
             yield (
                 self.label,
                 [],
-                AustinMetrics(time=self.own)
-                if stats_type in {AustinStatsType.CPU, AustinStatsType.WALL}
-                else AustinMetrics(memory=self.own),
+                (
+                    AustinMetrics(time=self.own)
+                    if stats_type in {AustinStatsType.CPU, AustinStatsType.WALL}
+                    else AustinMetrics(memory=self.own)
+                ),
             )
 
         if self.children:

@@ -35,7 +35,6 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
@@ -43,7 +42,7 @@ classifiers = [
   "Programming Language :: Python :: 3.14",
 ]
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
   "protobuf~=3.12",
   "psutil>=5.7.0",
@@ -66,6 +65,7 @@ austin2speedscope = "austin.format.speedscope:main"
 mojo2austin = "austin.format.collapsed_stack:main"
 austinp-resolve = "austin.tools.resolve:main"
 mojodbg = "austin.tools.mojodbg:main"
+mojo-compress = "austin.format.mojo_compress:main"
 
 [tool.hatch.envs.tests]
 template = "tests"
@@ -78,20 +78,21 @@ dependencies = [
 tests = "pytest --cov=austin --cov-report=term-missing --cov-report=xml {args}"
 
 [[tool.hatch.envs.tests.matrix]]
-python = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 
 [tool.hatch.envs.checks]
-python = "3.10"
+python = "3.13"
 template = "checks"
 dependencies = [
-  "mypy~=0.770",
-  "flake8~=5.0.4",
-  "flake8-annotations~=2.9.1",
-  "flake8-black",
-  "flake8-bugbear~=22.9.23",
-  "flake8-docstrings~=1.6.0",
-  "flake8-import-order~=0.18.1",
-  "flake8-isort~=5.0.0",
+  "black~=26.3",
+  "mypy~=0.990",
+  "flake8~=7.3",
+  "flake8-annotations~=3.2",
+  "flake8-black~=0.4",
+  "flake8-bugbear~=25.11",
+  "flake8-docstrings~=1.7",
+  "flake8-isort~=7.0",
+  "isort~=5.13",
 ]
 
 [tool.hatch.envs.checks.scripts]
@@ -145,6 +146,23 @@ module = [
   "austin.format.pprof",
 ]
 ignore_errors = true
+
+[tool.black]
+target-version = ["py310", "py311", "py312", "py313", "py314"]
+extend-exclude = '''
+(
+  /profile_pb2\.py
+  | /test/data/column\.py
+)
+'''
+
+[tool.isort]
+force_single_line = true
+lines_after_imports = -1
+skip = [
+  "austin/format/pprof/profile_pb2.py",
+  "test/data/column.py",
+]
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]

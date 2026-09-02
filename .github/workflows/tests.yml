@@ -16,17 +16,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
 
     name: Tests with Python ${{ matrix.python-version }} on Linux
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           path: main
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}-dev
+          python-version: ${{ matrix.python-version }}
 
       - name: Checkout Austin development branch
         uses: actions/checkout@master
@@ -68,17 +68,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
 
     name: Tests with Python ${{ matrix.python-version }} on MacOS
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           path: main
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}-dev
+          python-version: ${{ matrix.python-version }}
 
       - name: Checkout Austin development branch
         uses: actions/checkout@master
@@ -113,17 +113,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "3.14t"]
 
     name: Tests with Python ${{ matrix.python-version }} on Windows
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           path: main
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}-dev
+          python-version: ${{ matrix.python-version }}
 
       - name: Checkout Austin development branch
         uses: actions/checkout@master

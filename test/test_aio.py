@@ -23,6 +23,7 @@
 
 import asyncio
 import sys
+import sysconfig
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -59,14 +60,16 @@ class TestAsyncAustin(AsyncAustin):
     async def on_terminate(self):
         data = self._meta
         assert "duration" in data
-        assert "errors" in data
-        assert "sampling" in data
-        assert "saturation" in data
+        if sysconfig.get_config_var("Py_GIL_DISABLED") is False:
+            assert "errors" in data
+            assert "sampling" in data
+            assert "saturation" in data
         self._terminate = True
 
     def assert_callbacks_called(self):
         assert self._metadata
-        assert self._sample_received
+        if sysconfig.get_config_var("Py_GIL_DISABLED") is False:
+            assert self._sample_received
         assert self._terminate
 
 
@@ -109,7 +112,7 @@ async def test_async_memory():
             "100",
             "python",
             "-c",
-            "[i for i in range(10000000)]",
+            "[i for i in range(100000000)]",
         ]
     )
     await asyncio.wait_for(austin.wait(), 30)

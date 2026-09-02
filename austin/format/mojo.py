@@ -12,9 +12,15 @@ from austin.events import AustinFrame
 from austin.events import AustinMetadata
 from austin.events import AustinMetrics
 from austin.events import AustinSample
+from austin.events import AustinTask
 from austin.events import InterpreterId
 from austin.events import ProcessId
 from austin.events import ThreadName
+
+# Guards against a corrupted/cyclic waiter graph in the source stream -- a
+# real await chain never comes anywhere close to this. Mirrors austin's own
+# WHERE_MAX_TREE_DEPTH (src/events.c).
+MAX_TASK_TREE_DEPTH = 64
 
 
 def to_varint(n: int) -> bytes:
@@ -67,6 +73,8 @@ class MojoEvents:
     STRING = 11
     STRING_REF = 12
     STACK_REPEAT = 13
+    TASK_STACK = 14
+    TASK_WAITER = 15
 
 
 class MojoEventHandler:
@@ -198,6 +206,44 @@ class MojoStackRepeat(MojoEvent):
 
 
 @dataclass(frozen=True, eq=True)
+class MojoTaskWaiter(MojoEvent):
+    """MOJO task waiter event.
+
+    One edge of a task's waiter DAG: ``task_id`` is awaited by
+    ``waiter_id``.
+    """
+
+    EVENT_ID = MojoEvents.TASK_WAITER
+
+    task_id: int
+    waiter_id: int
+
+
+@dataclass(frozen=True, eq=True)
+class MojoTaskStack(MojoEvent):
+    """MOJO task stack event.
+
+    Introduces the coroutine stack of a suspended task, keyed by the remote
+    address of its TaskObj and its (possibly cached) name key (0 if
+    unresolved). The frames that make up the stack, and the trailing time
+    metric that terminates it, follow as ordinary MOJO_FRAME/MOJO_FRAME_REF/
+    MOJO_METRIC_TIME events rather than being part of this event itself --
+    see BaseMojoStreamReader's task-stack handling.
+
+    The trailing metric is always a time value, and describes how long the
+    task dwelled at its PREVIOUS position, not the frames that just followed
+    this event -- see AustinTask's own docstring for why the two are always
+    one step apart. It never appears at all when austin was run in pure
+    memory mode.
+    """
+
+    EVENT_ID = MojoEvents.TASK_STACK
+
+    task_id: int
+    name_key: int
+
+
+@dataclass(frozen=True, eq=True)
 class MojoFrame(MojoEvent):
     """MOJO frame."""
 
@@ -264,6 +310,29 @@ class _RunningSample:
     metrics: t.Dict[MojoMetricType, MojoMetric] = field(default_factory=dict)
     gc: t.Optional[bool] = None
     idle: t.Optional[bool] = None
+
+
+@dataclass
+class _RunningTaskStack:
+    task_id: int
+    name_key: int
+    frames: t.List[MojoFrame] = field(default_factory=list)
+
+
+@dataclass
+class _TaskInfo:
+    """Best-known state for one task_id.
+
+    Built up from MOJO_TASK_STACK events as they arrive. ``owner`` is the
+    (pid, thread) of whichever sample's wire bracket this task's most recent
+    MOJO_TASK_STACK fell within -- see BaseMojoStreamReader's task-stack
+    handling for why that bracket is the only ownership signal that exists.
+    """
+
+    name: t.Optional[str]
+    owner: t.Tuple[ProcessId, ThreadName]
+    frames: t.Tuple[AustinFrame, ...] = ()
+    elapsed: t.Optional[int] = None
 
 
 def int_reader() -> t.Generator[t.Optional[int], bytes, int]:
@@ -339,6 +408,26 @@ class BaseMojoStreamReader(AustinEventIterator):
         # Key: (pid, thread_name); value: list of MojoFrame accumulated by the
         # last fully-finalised sample for that thread.
         self._prev_frames: t.Dict[t.Tuple[int, str], t.List[MojoFrame]] = {}
+
+        # Suspended-task coroutine-chain state (3.14+ asyncio). A task stack's
+        # frames/terminating time metric are ordinary MOJO_FRAME/MOJO_FRAME_REF/
+        # MOJO_METRIC_TIME events on the wire, indistinguishable by event ID
+        # alone from those of the enclosing regular stack sample -- so while
+        # this is not None, get_frame_ref/get_time_metric route to it instead
+        # of the running sample.
+        self._running_task_stack: t.Optional[_RunningTaskStack] = None
+
+        # Best-known state per task_id, keyed by remote TaskObj address.
+        self._task_info: t.Dict[int, _TaskInfo] = {}
+
+        # Best-known waiter DAG edges: (task_id, waiter_id) pairs, meaning
+        # task_id is awaited by waiter_id. The wire re-emits a task's
+        # *complete* current waiter set whenever it changes (never a diff --
+        # see py_asyncio.c's fingerprint comment), so a fresh batch for a
+        # task_id replaces its previous edges; batch boundaries are inferred
+        # from consecutive same-task_id events (see get_task_waiter).
+        self._task_edges: t.Set[t.Tuple[int, int]] = set()
+        self._last_waiter_task_id: t.Optional[int] = None
 
         # Austin events
         self.metadata: t.Dict[str, str] = {}
@@ -416,6 +505,9 @@ class BaseMojoStreamReader(AustinEventIterator):
                 ),
                 gc=self._running_sample.gc,
                 idle=self._running_sample.idle,
+                tasks=self.get_tasks(
+                    self._running_sample.pid, self._running_sample.thread
+                ),
             )
         )
 
@@ -499,10 +591,147 @@ class BaseMojoStreamReader(AustinEventIterator):
         """Parse a frame reference."""
         frame = self._frame_map[self.ref(ref)]
 
-        assert self._running_sample is not None, self._running_sample
-        self._running_sample.frames.append(frame)
+        if self._running_task_stack is not None:
+            self._running_task_stack.frames.append(frame)
+        else:
+            assert self._running_sample is not None, self._running_sample
+            self._running_sample.frames.append(frame)
 
         return MojoFrameReference(frame)
+
+    def get_task_waiter(self, task_id: int, waiter_id: int) -> MojoTaskWaiter:
+        """Parse a task waiter edge."""
+        if self._last_waiter_task_id != task_id:
+            # Starting a fresh batch for this task_id: the wire re-emits the
+            # complete current waiter set whenever it changes, so drop
+            # whatever we knew about this task_id's waiters before.
+            self._task_edges = {e for e in self._task_edges if e[0] != task_id}
+            self._last_waiter_task_id = task_id
+
+        self._task_edges.add((task_id, waiter_id))
+
+        return MojoTaskWaiter(task_id, waiter_id)
+
+    def get_task_stack(self, task_id: int, name_key: int) -> MojoTaskStack:
+        """Parse the header of a suspended task's coroutine-chain snapshot.
+
+        The frames and terminating time metric that complete it arrive as
+        subsequent, ordinary events -- see get_frame_ref/get_time_metric.
+        """
+        self._running_task_stack = _RunningTaskStack(task_id, name_key)
+
+        return MojoTaskStack(task_id, name_key)
+
+    def _finalize_task_stack(self, elapsed: int) -> None:
+        """Finalize the running task stack.
+
+        Triggered by its terminating MOJO_METRIC_TIME (see get_time_metric).
+        ``ts.frames`` (the task's brand new position) and ``elapsed`` (how
+        long it dwelled at its previous one) describe two different moments
+        even though they land in the same _TaskInfo/AustinTask -- see
+        AustinTask's own docstring. The task's owner is recorded as whichever
+        sample is currently being assembled: this event only ever arrives
+        bracketed inside that sample's own MOJO_STACK...next-MOJO_STACK
+        window, so there's nothing else it could belong to.
+
+        An empty ``ts.frames`` is a closing flush -- the task has just been
+        evicted (completed, or otherwise gone), and this only carries its
+        final dwell time, with no new content and no meaningful owner (by
+        the time eviction runs, every thread for this cycle has already had
+        its turn, so "whichever sample is currently being assembled" is
+        arbitrary here, not this task's actual owner). Only update elapsed
+        on whatever's already known; leave frames/owner untouched rather
+        than wiping the task's last real position right as it disappears.
+        """
+        ts = self._running_task_stack
+        assert ts is not None, ts
+        assert self._running_sample is not None, self._running_sample
+
+        if not ts.frames:
+            existing = self._task_info.get(ts.task_id)
+            if existing is not None:
+                existing.elapsed = elapsed
+            self._running_task_stack = None
+            return
+
+        name = self._lookup_string(ts.name_key).value if ts.name_key else None
+
+        self._task_info[ts.task_id] = _TaskInfo(
+            name=name,
+            owner=(self._running_sample.pid, self._running_sample.thread),
+            frames=tuple(
+                AustinFrame(
+                    filename=mf.filename.value,
+                    function=mf.scope.value,
+                    line=mf.line,
+                    line_end=mf.line_end,
+                    column=mf.column,
+                    column_end=mf.column_end,
+                )
+                for mf in ts.frames
+            ),
+            elapsed=elapsed,
+        )
+
+        self._running_task_stack = None
+
+    def get_tasks(self, pid: ProcessId, thread: ThreadName) -> t.Tuple[AustinTask, ...]:
+        """Return the current best-known root tasks owned by (pid, thread).
+
+        Every root task it owns (nobody awaits it), and everything it
+        transitively awaits, as one AustinTask per root -- a thread can own
+        more than one at once (e.g. several siblings under one gather()).
+
+        Mirrors austin's own where_event_handler__render_tree: a task only
+        appears if it was itself captured suspended at least once (a waiter
+        edge naming a task we never saw a MOJO_TASK_STACK for -- e.g. it was
+        only ever seen actively running -- is omitted, exactly like austin's
+        own where_event_handler__find_task returning NULL for it). Like that
+        C-side counterpart, this is a no-op (returns empty) when (pid,
+        thread) owns no tasks, so callers can call it unconditionally.
+        """
+
+        def has_parent(task_id: int) -> bool:
+            return any(t_id == task_id for t_id, _ in self._task_edges)
+
+        def build(task_id: int, depth: int) -> AustinTask:
+            info = self._task_info[task_id]
+            awaiting = (
+                tuple(
+                    build(awaited_id, depth + 1)
+                    for awaited_id, waiter_id in self._task_edges
+                    if waiter_id == task_id and awaited_id in self._task_info
+                )
+                if depth < MAX_TASK_TREE_DEPTH
+                else ()
+            )
+            return AustinTask(
+                task_id=task_id,
+                name=info.name,
+                frames=info.frames,
+                elapsed=info.elapsed,
+                awaiting=awaiting,
+            )
+
+        owner = (pid, thread)
+        roots = [
+            task_id
+            for task_id, info in self._task_info.items()
+            if info.owner == owner and not has_parent(task_id)
+        ]
+
+        if not roots:
+            # Best-effort fallback, matching austin's own render_tree: if
+            # every one of this owner's tasks appears to have a parent (a
+            # cyclic/bogus edge), there's no true root -- show each as its
+            # own top-level tree rather than silently showing nothing.
+            roots = [
+                task_id
+                for task_id, info in self._task_info.items()
+                if info.owner == owner
+            ]
+
+        return tuple(build(task_id, 0) for task_id in roots)
 
     def get_kernel_frame(self, name: str) -> MojoKernelFrame:
         """Parse kernel frame."""
@@ -517,7 +746,17 @@ class BaseMojoStreamReader(AustinEventIterator):
         return metric
 
     def get_time_metric(self, value: int) -> MojoMetric:
-        """Parse time metric."""
+        """Parse time metric.
+
+        A task stack's frame sequence has no length prefix on the wire -- its
+        end is only knowable by the terminating MOJO_METRIC_TIME that always
+        follows it (see mojo_event_handler__handle_task_stack_end), which is
+        why this, rather than get_task_stack, is where finalization happens.
+        """
+        if self._running_task_stack is not None:
+            self._finalize_task_stack(value)
+            return MojoMetric(MojoMetricType.TIME, value)
+
         return self._get_metric(MojoMetricType.TIME, value)
 
     def get_memory_metric(self, value: int) -> MojoMetric:
@@ -630,7 +869,7 @@ class MojoStreamReader(BaseMojoStreamReader):
     @handles(MojoEvents.METRIC_TIME)
     def parse_time_metric(self) -> MojoMetric:
         """Parse time metric."""
-        return self._parse_metric(MojoMetricType.TIME)
+        return self.get_time_metric(self.read_int())
 
     @handles(MojoEvents.METRIC_MEMORY)
     def parse_memory_metric(self) -> MojoMetric:
@@ -666,6 +905,16 @@ class MojoStreamReader(BaseMojoStreamReader):
     def parse_stack_repeat(self) -> MojoStackRepeat:
         """Parse a stack repeat event."""
         return self.get_stack_repeat()
+
+    @handles(MojoEvents.TASK_WAITER)
+    def parse_task_waiter(self) -> MojoTaskWaiter:
+        """Parse a task waiter edge."""
+        return self.get_task_waiter(self.read_int(), self.read_int())
+
+    @handles(MojoEvents.TASK_STACK)
+    def parse_task_stack(self) -> MojoTaskStack:
+        """Parse the header of a suspended task's coroutine-chain snapshot."""
+        return self.get_task_stack(self.read_int(), self.read_int())
 
     def parse_event(self) -> t.Optional[MojoEvent]:
         """Parse a single event."""
@@ -727,7 +976,10 @@ class MojoStreamReader(BaseMojoStreamReader):
             yield self._finalize_sample()
 
     def hexdump(
-        self, start: int, end: int, highlight: t.Set[int] = set()  # noqa: B006
+        self,
+        start: int,
+        end: int,
+        highlight: t.Set[int] = set(),  # noqa: B006
     ) -> None:
         """Print a hexdump of the MOJO file."""
         self.mojo.seek(start)
@@ -818,7 +1070,7 @@ class AsyncMojoStreamReader(BaseMojoStreamReader):
     @handles(MojoEvents.METRIC_TIME)
     async def parse_time_metric(self) -> MojoMetric:
         """Parse time metric."""
-        return await self._parse_metric(MojoMetricType.TIME)
+        return self.get_time_metric(await self.read_int())
 
     @handles(MojoEvents.METRIC_MEMORY)
     async def parse_memory_metric(self) -> MojoMetric:
@@ -856,6 +1108,16 @@ class AsyncMojoStreamReader(BaseMojoStreamReader):
     async def parse_stack_repeat(self) -> MojoStackRepeat:
         """Parse a stack repeat event."""
         return self.get_stack_repeat()
+
+    @handles(MojoEvents.TASK_WAITER)
+    async def parse_task_waiter(self) -> MojoTaskWaiter:
+        """Parse a task waiter edge."""
+        return self.get_task_waiter(await self.read_int(), await self.read_int())
+
+    @handles(MojoEvents.TASK_STACK)
+    async def parse_task_stack(self) -> MojoTaskStack:
+        """Parse the header of a suspended task's coroutine-chain snapshot."""
+        return self.get_task_stack(await self.read_int(), await self.read_int())
 
     async def parse_event(self) -> t.Optional[MojoEvent]:
         """Parse a single event."""
@@ -920,7 +1182,7 @@ class AsyncMojoStreamReader(BaseMojoStreamReader):
 class BaseMojoStreamWriter(abc.ABC):
     """Base class for MOJO stream writers."""
 
-    HEADER = b"MOJ\x03"
+    HEADER = b"MOJ\x04"
 
     def __init__(self, mojo: t.Any) -> None:
         self.mojo = mojo
@@ -936,6 +1198,7 @@ class BaseMojoStreamWriter(abc.ABC):
         self._gc = False
 
         self._new_entries: t.List[MojoEvent] = []
+        self._task_ids: t.Dict[int, int] = {}
 
     def set_metadata(self, metadata: AustinMetadata) -> None:
         self._meta[metadata.name] = metadata.value
@@ -952,6 +1215,14 @@ class BaseMojoStreamWriter(abc.ABC):
             self._new_entries.append(mojo_string)
             return mojo_string
 
+    def resolve_task_id(self, task_id: int) -> int:
+        try:
+            return self._task_ids[task_id]
+        except KeyError:
+            compact_id = len(self._task_ids)
+            self._task_ids[task_id] = compact_id
+            return compact_id
+
     def resolve_frame(self, frame: AustinFrame) -> MojoFrame:
         try:
             return self._frames[frame]
@@ -967,6 +1238,77 @@ class BaseMojoStreamWriter(abc.ABC):
             )
             self._new_entries.append(mojo_frame)
             return mojo_frame
+
+    def _collect_tasks(
+        self,
+        tasks: t.Sequence[AustinTask],
+        seen: t.Dict[int, AustinTask],
+        edges: t.Dict[int, t.Set[int]],
+    ) -> None:
+        """Flatten a root-task list into its distinct tasks and waiter edges.
+
+        A task can legitimately appear more than once (once per waiter, if
+        it has more than one -- see AustinTask's own docstring on
+        ``awaiting``), so this collects each task_id's own stack exactly
+        once (``seen``, first occurrence wins) and every one of its waiters
+        together (``edges``), rather than re-walking and re-emitting it once
+        per occurrence.
+        """
+        for task in tasks:
+            seen.setdefault(task.task_id, task)
+            for awaited in task.awaiting:
+                edges.setdefault(awaited.task_id, set()).add(task.task_id)
+            self._collect_tasks(task.awaiting, seen, edges)
+
+    def write_tasks(self, tasks: t.Sequence[AustinTask]) -> int:
+        """Write every task's own coroutine-chain snapshot, then every waiter edge.
+
+        See _collect_tasks for why each is written exactly once, and edges
+        for one task_id are always written contiguously (required for
+        MojoStreamReader.get_task_waiter's own batch-replace logic to
+        reconstruct a multi-waiter task correctly).
+        """
+        size = 0
+
+        seen: t.Dict[int, AustinTask] = {}
+        edges: t.Dict[int, t.Set[int]] = {}
+        self._collect_tasks(tasks, seen, edges)
+
+        for task in seen.values():
+            name_key = self.resolve_string(task.name).key if task.name else 0
+
+            while self._new_entries:
+                size += self.mojo.write(self._new_entries.pop(0).to_bytes())
+
+            size += self.mojo.write(
+                MojoTaskStack(
+                    task_id=self.resolve_task_id(task.task_id), name_key=name_key
+                ).to_bytes()
+            )
+
+            task_frames = [self.resolve_frame(f) for f in task.frames]
+
+            while self._new_entries:
+                size += self.mojo.write(self._new_entries.pop(0).to_bytes())
+
+            for frame in task_frames:
+                size += self.mojo.write(MojoFrameReference(frame).to_bytes())
+
+            size += self.mojo.write(
+                MojoMetric(MojoMetricType.TIME, task.elapsed or 0).to_bytes()
+            )
+
+        for task_id, waiter_ids in edges.items():
+            compact_task_id = self.resolve_task_id(task_id)
+            for waiter_id in waiter_ids:
+                size += self.mojo.write(
+                    MojoTaskWaiter(
+                        task_id=compact_task_id,
+                        waiter_id=self.resolve_task_id(waiter_id),
+                    ).to_bytes()
+                )
+
+        return size
 
     @abc.abstractmethod
     def write(self, event: AustinEvent) -> int: ...  # noqa: E704
@@ -990,14 +1332,22 @@ class MojoStreamWriter(BaseMojoStreamWriter):
             )
 
         elif isinstance(event, AustinSample):
-            frames = (
-                [self.resolve_frame(f) for f in event.frames] if event.frames else []
-            )
-
             size += self.mojo.write(
                 MojoStack(
                     pid=event.pid, iid=event.iid or 0, tid=event.thread
                 ).to_bytes()
+            )
+
+            # Task-scan payload (waiter edges + suspended coroutine-chain
+            # snapshots) is written before this sample's own frames -- it
+            # rides between the enclosing MOJO_STACK header and the sample's
+            # own frame dump on the real wire too (see austin's own
+            # py_proc.c, _py_proc__sample_threads).
+            if event.tasks:
+                size += self.write_tasks(event.tasks)
+
+            frames = (
+                [self.resolve_frame(f) for f in event.frames] if event.frames else []
             )
 
             while self._new_entries:

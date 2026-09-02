@@ -44,6 +44,35 @@ class AustinMetadata(AustinEvent):
 
 
 @dataclass(frozen=True)
+class AustinTask:
+    """A node in an asyncio task tree (3.14+ only).
+
+    ``frames`` is this task's own last-known suspended coroutine-chain
+    snapshot -- empty if it was never captured suspended (e.g. it was only
+    ever seen actively running rather than awaiting something). ``awaiting``
+    are the tasks this task is itself awaiting, i.e. the tasks for which this
+    task is the direct waiter.
+
+    ``elapsed`` does NOT describe ``frames``. Austin only re-samples a task's
+    chain (and reports a new node) when its identity has actually changed
+    since the last scan, so the two are always one step apart: ``frames`` is
+    the task's brand new position (just captured because it changed), while
+    ``elapsed`` is how long the task dwelled at its *previous*, now-replaced
+    position -- the earliest point at which that duration could be known at
+    all. None on a task's first-ever sighting, when there is no previous
+    position to report a duration for. Always a wall/CPU time value, or None
+    if Austin was run in pure memory mode (no per-task memory delta exists to
+    report -- see austin's own py_proc.c, _py_proc__maybe_discover_asyncio).
+    """
+
+    task_id: int
+    name: t.Optional[str]
+    frames: t.Tuple[AustinFrame, ...] = ()
+    elapsed: t.Optional[MicroSeconds] = None
+    awaiting: t.Tuple["AustinTask", ...] = ()
+
+
+@dataclass(frozen=True)
 class AustinSample(AustinEvent):
     """Austin sample."""
 
@@ -63,6 +92,7 @@ class AustinSample(AustinEvent):
     frames: t.Optional[t.Tuple[AustinFrame, ...]] = None
     gc: t.Optional[bool] = None
     idle: t.Optional[bool] = None
+    tasks: t.Tuple[AustinTask, ...] = ()
 
     def key(
         self,

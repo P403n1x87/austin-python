@@ -270,8 +270,11 @@ class AustinStats:
         by using :func:`Sample.parse` on a sample string passed by Austin to
         the sample callback.
         """
-        if self.stats_type in {AustinStatsType.WALL, AustinStatsType.CPU}:
+        if self.stats_type is AustinStatsType.WALL:
             metric = sample.metrics.time
+        elif self.stats_type is AustinStatsType.CPU:
+            # In full mode, idle samples contribute wall time but no CPU time
+            metric = None if sample.idle else sample.metrics.time
         elif (
             self.stats_type is AustinStatsType.MEMORY_ALLOC
             and sample.metrics.memory is not None

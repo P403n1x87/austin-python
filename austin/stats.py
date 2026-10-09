@@ -67,7 +67,8 @@ class HierarchicalStats:
     leaf is given by those instances with an empty ``children`` attribute.
 
     The ``label`` attribute is used for indexing reasons and therefore should
-    be of a hashable type.
+    be of a hashable type. The ``samples`` attribute counts the samples that
+    contributed to the ``total`` of the node.
 
     This class overrides the default ``add`` operator so that one can perform
     operations like ``stats1 + stats2``. Note, however, that instances of this
@@ -79,6 +80,7 @@ class HierarchicalStats:
     own: int
     total: int
     children: Dict[Any, "HierarchicalStats"] = field(default_factory=dict)
+    samples: int = 0
 
     def __lshift__(self, other: "HierarchicalStats") -> "HierarchicalStats":
         """Merge the RHS into the LHS."""
@@ -87,6 +89,7 @@ class HierarchicalStats:
 
         self.own += other.own
         self.total += other.total
+        self.samples += other.samples
 
         for frame, child in other.children.items():
             try:
@@ -292,13 +295,15 @@ class AustinStats:
 
         pid = sample.pid
         thread_info = ThreadInfo(sample.thread, sample.iid or 0)
-        thread_stats = ThreadStats(thread_info, own=0, total=metric)
+        thread_stats = ThreadStats(thread_info, own=0, total=metric, samples=1)
 
         # Convert the list of frames into a nested FrameStats instance
         stats: HierarchicalStats = thread_stats
         container = thread_stats.children
         for height, frame in enumerate(sample.frames or []):
-            stats = FrameStats(label=frame, height=height, own=0, total=metric)
+            stats = FrameStats(
+                label=frame, height=height, own=0, total=metric, samples=1
+            )
             container[frame] = stats
             container = stats.children
         stats.own = stats.total

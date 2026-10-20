@@ -13,6 +13,7 @@ from austin.events import AustinMetadata
 from austin.events import AustinMetrics
 from austin.events import AustinSample
 from austin.events import AustinTask
+from austin.events import AustinTaskReport
 from austin.events import InterpreterId
 from austin.events import ProcessId
 from austin.events import ThreadName
@@ -75,6 +76,7 @@ class MojoEvents:
     STACK_REPEAT = 13
     TASK_STACK = 14
     TASK_WAITER = 15
+    TASK_RUNNING = 16
 
 
 class MojoEventHandler:
@@ -220,27 +222,35 @@ class MojoTaskWaiter(MojoEvent):
 
 
 @dataclass(frozen=True, eq=True)
+class MojoTaskRunning(MojoEvent):
+    """MOJO task running event.
+
+    The task the enclosing sample's thread was running at that sample. The
+    sample's metrics then belong to that task too, at its latest position.
+    """
+
+    EVENT_ID = MojoEvents.TASK_RUNNING
+
+    task_id: int
+
+
+@dataclass(frozen=True, eq=True)
 class MojoTaskStack(MojoEvent):
     """MOJO task stack event.
 
-    Introduces the coroutine stack of a suspended task, keyed by the remote
-    address of its TaskObj and its (possibly cached) name key (0 if
-    unresolved). The frames that make up the stack, and the trailing time
-    metric that terminates it, follow as ordinary MOJO_FRAME/MOJO_FRAME_REF/
-    MOJO_METRIC_TIME events rather than being part of this event itself --
-    see BaseMojoStreamReader's task-stack handling.
-
-    The trailing metric is always a time value, and describes how long the
-    task dwelled at its PREVIOUS position, not the frames that just followed
-    this event -- see AustinTask's own docstring for why the two are always
-    one step apart. It never appears at all when austin was run in pure
-    memory mode.
+    Introduces a task's new position, keyed by an opaque task id and its
+    (possibly cached) name key (0 if unresolved, and on a closing flush). The
+    next ``frame_count`` frame references are the task's frames; none means
+    the task is gone. The report carries no time: the time a task spends at a
+    position is the time of its thread's samples while it holds it -- see
+    AustinTaskReport.
     """
 
     EVENT_ID = MojoEvents.TASK_STACK
 
     task_id: int
     name_key: int
+    frame_count: int
 
 
 @dataclass(frozen=True, eq=True)
@@ -310,12 +320,15 @@ class _RunningSample:
     metrics: t.Dict[MojoMetricType, MojoMetric] = field(default_factory=dict)
     gc: t.Optional[bool] = None
     idle: t.Optional[bool] = None
+    running_task: t.Optional[int] = None
+    task_reports: t.List[AustinTaskReport] = field(default_factory=list)
 
 
 @dataclass
 class _RunningTaskStack:
     task_id: int
     name_key: int
+    frame_count: int
     frames: t.List[MojoFrame] = field(default_factory=list)
 
 
@@ -332,7 +345,8 @@ class _TaskInfo:
     name: t.Optional[str]
     owner: t.Tuple[ProcessId, ThreadName]
     frames: t.Tuple[AustinFrame, ...] = ()
-    elapsed: t.Optional[int] = None
+    # Time spent at ``frames`` so far, i.e. since the task's last report.
+    pending: int = 0
 
 
 def int_reader() -> t.Generator[t.Optional[int], bytes, int]:
@@ -473,9 +487,60 @@ class BaseMojoStreamReader(AustinEventIterator):
     def gc(self) -> t.Optional[str]:
         return self.metadata.get("gc")
 
-    def _finalize_sample(self) -> AustinSample:
-        """Finalize the current sample."""
+    def _accrue_task_time(self, sample: _RunningSample) -> None:
+        """Add the time of a sample to the tasks its thread holds.
+
+        A task's time at a position is the time of its thread's samples while
+        it holds it: the running task's go to it as running (see
+        AustinSample.running_task), every other task's as time at its current
+        position, which its next report carries. In CPU mode a task that isn't
+        running isn't using the CPU, so it gets nothing.
+        """
+        if self.mode == "cpu":
+            return
+
+        time_metric = sample.metrics.get(MojoMetricType.TIME)
+        if time_metric is None or not time_metric.value:
+            return
+
+        owner = (sample.pid, sample.thread)
+        for task_id, info in self._task_info.items():
+            if info.owner == owner and task_id != sample.running_task:
+                info.pending += time_metric.value
+
+    def _end_task_reports(self) -> t.List[AustinTaskReport]:
+        """Report the time the tasks still alive have spent at their position.
+
+        Nothing else would: a task's time at a position is only reported when
+        the task moves on, or goes. These reports leave the position unchanged
+        (``frames`` and ``previous`` are the same).
+        """
+        reports = [
+            AustinTaskReport(
+                task_id=task_id,
+                name=info.name,
+                frames=info.frames,
+                previous=info.frames,
+                elapsed=info.pending,
+            )
+            for task_id, info in self._task_info.items()
+            if info.pending
+        ]
+        for info in self._task_info.values():
+            info.pending = 0
+        return reports
+
+    def _finalize_sample(self, last: bool = False) -> AustinSample:
+        """Finalize the current sample.
+
+        The last sample of the stream also carries the end-of-stream task
+        reports (see _end_task_reports).
+        """
         assert self._running_sample is not None, self._running_sample
+
+        self._accrue_task_time(self._running_sample)
+        if last:
+            self._running_sample.task_reports.extend(self._end_task_reports())
 
         self.samples.append(
             sample := AustinSample(
@@ -505,6 +570,8 @@ class BaseMojoStreamReader(AustinEventIterator):
                 ),
                 gc=self._running_sample.gc,
                 idle=self._running_sample.idle,
+                running_task=self._running_sample.running_task,
+                task_reports=tuple(self._running_sample.task_reports),
                 tasks=self.get_tasks(
                     self._running_sample.pid, self._running_sample.thread
                 ),
@@ -551,6 +618,10 @@ class BaseMojoStreamReader(AustinEventIterator):
         if self._running_sample is not None:
             self._finalize_sample()
 
+        # A task's waiter set is a run of consecutive MOJO_TASK_WAITER events,
+        # which never spans a sample boundary.
+        self._last_waiter_task_id = None
+
         self._running_sample = _RunningSample(
             pid=pid,
             iid=iid,
@@ -593,6 +664,11 @@ class BaseMojoStreamReader(AustinEventIterator):
 
         if self._running_task_stack is not None:
             self._running_task_stack.frames.append(frame)
+            if (
+                len(self._running_task_stack.frames)
+                >= self._running_task_stack.frame_count
+            ):
+                self._finalize_task_stack()
         else:
             assert self._running_sample is not None, self._running_sample
             self._running_sample.frames.append(frame)
@@ -608,72 +684,102 @@ class BaseMojoStreamReader(AustinEventIterator):
             self._task_edges = {e for e in self._task_edges if e[0] != task_id}
             self._last_waiter_task_id = task_id
 
-        self._task_edges.add((task_id, waiter_id))
+        # A waiter of 0 is no task: the task's waiter set is now empty.
+        if waiter_id:
+            self._task_edges.add((task_id, waiter_id))
 
         return MojoTaskWaiter(task_id, waiter_id)
 
-    def get_task_stack(self, task_id: int, name_key: int) -> MojoTaskStack:
-        """Parse the header of a suspended task's coroutine-chain snapshot.
+    def get_task_running(self, task_id: int) -> MojoTaskRunning:
+        """Parse the task the current sample's thread was running."""
+        assert self._running_sample is not None, self._running_sample
+        self._running_sample.running_task = task_id
 
-        The frames and terminating time metric that complete it arrive as
-        subsequent, ordinary events -- see get_frame_ref/get_time_metric.
+        return MojoTaskRunning(task_id)
+
+    def get_task_stack(
+        self, task_id: int, name_key: int, frame_count: int
+    ) -> MojoTaskStack:
+        """Parse the header of a task report.
+
+        Its frames arrive as the next ``frame_count`` frame references -- see
+        get_frame_ref. A report with none closes the task right away.
         """
-        self._running_task_stack = _RunningTaskStack(task_id, name_key)
+        self._running_task_stack = _RunningTaskStack(task_id, name_key, frame_count)
+        self._last_waiter_task_id = None
 
-        return MojoTaskStack(task_id, name_key)
+        if not frame_count:
+            self._finalize_task_stack()
 
-    def _finalize_task_stack(self, elapsed: int) -> None:
+        return MojoTaskStack(task_id, name_key, frame_count)
+
+    def _finalize_task_stack(self) -> None:
         """Finalize the running task stack.
 
-        Triggered by its terminating MOJO_METRIC_TIME (see get_time_metric).
-        ``ts.frames`` (the task's brand new position) and ``elapsed`` (how
-        long it dwelled at its previous one) describe two different moments
-        even though they land in the same _TaskInfo/AustinTask -- see
-        AustinTask's own docstring. The task's owner is recorded as whichever
-        sample is currently being assembled: this event only ever arrives
-        bracketed inside that sample's own MOJO_STACK...next-MOJO_STACK
-        window, so there's nothing else it could belong to.
+        Triggered by its last frame reference (see get_frame_ref), or right
+        away by a header with no frames (see get_task_stack). The report's
+        frames are the task's new position, and its elapsed time is the time
+        the task spent at its previous one -- see AustinTaskReport and
+        _accrue_task_time. The report is attached to the sample
+        currently being assembled, and the task's owner is recorded as that
+        sample's thread: this event only ever arrives bracketed inside that
+        sample's own MOJO_STACK...next-MOJO_STACK window, so there's nothing
+        else it could belong to.
 
-        An empty ``ts.frames`` is a closing flush -- the task has just been
-        evicted (completed, or otherwise gone), and this only carries its
-        final dwell time, with no new content and no meaningful owner (by
-        the time eviction runs, every thread for this cycle has already had
-        its turn, so "whichever sample is currently being assembled" is
-        arbitrary here, not this task's actual owner). Only update elapsed
-        on whatever's already known; leave frames/owner untouched rather
-        than wiping the task's last real position right as it disappears.
+        An empty ``ts.frames`` is a closing flush -- the task is gone
+        (completed, or otherwise), and this only carries its final time. It
+        has no name of its own, nor a meaningful owner (by the time eviction
+        runs, every thread for this cycle has already had its turn, so
+        "whichever sample is currently being assembled" is arbitrary here).
+        The task is forgotten, along with every waiter edge it is part of.
         """
         ts = self._running_task_stack
         assert ts is not None, ts
         assert self._running_sample is not None, self._running_sample
 
-        if not ts.frames:
-            existing = self._task_info.get(ts.task_id)
-            if existing is not None:
-                existing.elapsed = elapsed
-            self._running_task_stack = None
-            return
+        self._running_task_stack = None
 
-        name = self._lookup_string(ts.name_key).value if ts.name_key else None
+        existing = self._task_info.get(ts.task_id)
+        previous = existing.frames if existing is not None else None
+        elapsed = existing.pending if existing is not None else 0
+
+        if ts.name_key:
+            name: t.Optional[str] = self._lookup_string(ts.name_key).value
+        else:
+            name = existing.name if existing is not None else None
+
+        frames = tuple(
+            AustinFrame(
+                filename=mf.filename.value,
+                function=mf.scope.value,
+                line=mf.line,
+                line_end=mf.line_end,
+                column=mf.column,
+                column_end=mf.column_end,
+            )
+            for mf in ts.frames
+        )
+
+        self._running_sample.task_reports.append(
+            AustinTaskReport(
+                task_id=ts.task_id,
+                name=name,
+                frames=frames,
+                previous=previous,
+                elapsed=elapsed,
+            )
+        )
+
+        if not frames:
+            self._task_info.pop(ts.task_id, None)
+            self._task_edges = {e for e in self._task_edges if ts.task_id not in e}
+            return
 
         self._task_info[ts.task_id] = _TaskInfo(
             name=name,
             owner=(self._running_sample.pid, self._running_sample.thread),
-            frames=tuple(
-                AustinFrame(
-                    filename=mf.filename.value,
-                    function=mf.scope.value,
-                    line=mf.line,
-                    line_end=mf.line_end,
-                    column=mf.column,
-                    column_end=mf.column_end,
-                )
-                for mf in ts.frames
-            ),
-            elapsed=elapsed,
+            frames=frames,
         )
-
-        self._running_task_stack = None
 
     def get_tasks(self, pid: ProcessId, thread: ThreadName) -> t.Tuple[AustinTask, ...]:
         """Return the current best-known root tasks owned by (pid, thread).
@@ -682,17 +788,19 @@ class BaseMojoStreamReader(AustinEventIterator):
         transitively awaits, as one AustinTask per root -- a thread can own
         more than one at once (e.g. several siblings under one gather()).
 
-        Mirrors austin's own where_event_handler__render_tree: a task only
-        appears if it was itself captured suspended at least once (a waiter
-        edge naming a task we never saw a MOJO_TASK_STACK for -- e.g. it was
-        only ever seen actively running -- is omitted, exactly like austin's
-        own where_event_handler__find_task returning NULL for it). Like that
+        Mirrors austin's own where_event_handler__render_tree: only live
+        tasks that have been reported at least once appear. A waiter we know
+        nothing about (never reported, or already gone) doesn't count as a
+        parent, so the tasks it awaited still show up, as roots. Like that
         C-side counterpart, this is a no-op (returns empty) when (pid,
         thread) owns no tasks, so callers can call it unconditionally.
         """
 
         def has_parent(task_id: int) -> bool:
-            return any(t_id == task_id for t_id, _ in self._task_edges)
+            return any(
+                t_id == task_id and w_id in self._task_info
+                for t_id, w_id in self._task_edges
+            )
 
         def build(task_id: int, depth: int) -> AustinTask:
             info = self._task_info[task_id]
@@ -709,7 +817,6 @@ class BaseMojoStreamReader(AustinEventIterator):
                 task_id=task_id,
                 name=info.name,
                 frames=info.frames,
-                elapsed=info.elapsed,
                 awaiting=awaiting,
             )
 
@@ -746,17 +853,7 @@ class BaseMojoStreamReader(AustinEventIterator):
         return metric
 
     def get_time_metric(self, value: int) -> MojoMetric:
-        """Parse time metric.
-
-        A task stack's frame sequence has no length prefix on the wire -- its
-        end is only knowable by the terminating MOJO_METRIC_TIME that always
-        follows it (see mojo_event_handler__handle_task_stack_end), which is
-        why this, rather than get_task_stack, is where finalization happens.
-        """
-        if self._running_task_stack is not None:
-            self._finalize_task_stack(value)
-            return MojoMetric(MojoMetricType.TIME, value)
-
+        """Parse time metric."""
         return self._get_metric(MojoMetricType.TIME, value)
 
     def get_memory_metric(self, value: int) -> MojoMetric:
@@ -911,10 +1008,15 @@ class MojoStreamReader(BaseMojoStreamReader):
         """Parse a task waiter edge."""
         return self.get_task_waiter(self.read_int(), self.read_int())
 
+    @handles(MojoEvents.TASK_RUNNING)
+    def parse_task_running(self) -> MojoTaskRunning:
+        """Parse the running task of a sample."""
+        return self.get_task_running(self.read_int())
+
     @handles(MojoEvents.TASK_STACK)
     def parse_task_stack(self) -> MojoTaskStack:
-        """Parse the header of a suspended task's coroutine-chain snapshot."""
-        return self.get_task_stack(self.read_int(), self.read_int())
+        """Parse the header of a task report."""
+        return self.get_task_stack(self.read_int(), self.read_int(), self.read_int())
 
     def parse_event(self) -> t.Optional[MojoEvent]:
         """Parse a single event."""
@@ -973,7 +1075,7 @@ class MojoStreamReader(BaseMojoStreamReader):
                 if self.samples:
                     yield self.samples[-1]
         if self._running_sample is not None:
-            yield self._finalize_sample()
+            yield self._finalize_sample(last=True)
 
     def hexdump(
         self,
@@ -1114,10 +1216,17 @@ class AsyncMojoStreamReader(BaseMojoStreamReader):
         """Parse a task waiter edge."""
         return self.get_task_waiter(await self.read_int(), await self.read_int())
 
+    @handles(MojoEvents.TASK_RUNNING)
+    async def parse_task_running(self) -> MojoTaskRunning:
+        """Parse the running task of a sample."""
+        return self.get_task_running(await self.read_int())
+
     @handles(MojoEvents.TASK_STACK)
     async def parse_task_stack(self) -> MojoTaskStack:
-        """Parse the header of a suspended task's coroutine-chain snapshot."""
-        return self.get_task_stack(await self.read_int(), await self.read_int())
+        """Parse the header of a task report."""
+        return self.get_task_stack(
+            await self.read_int(), await self.read_int(), await self.read_int()
+        )
 
     async def parse_event(self) -> t.Optional[MojoEvent]:
         """Parse a single event."""
@@ -1176,7 +1285,7 @@ class AsyncMojoStreamReader(BaseMojoStreamReader):
                 if self.samples:
                     yield self.samples[-1]
         if self._running_sample is not None:
-            yield self._finalize_sample()
+            yield self._finalize_sample(last=True)
 
 
 class BaseMojoStreamWriter(abc.ABC):
@@ -1199,6 +1308,10 @@ class BaseMojoStreamWriter(abc.ABC):
 
         self._new_entries: t.List[MojoEvent] = []
         self._task_ids: t.Dict[int, int] = {}
+        # The waiter set last written for each task, and the tasks written so
+        # far (see write_tasks).
+        self._written_waiters: t.Dict[int, t.FrozenSet[int]] = {}
+        self._written_tasks: t.Set[int] = set()
 
     def set_metadata(self, metadata: AustinMetadata) -> None:
         self._meta[metadata.name] = metadata.value
@@ -1219,7 +1332,8 @@ class BaseMojoStreamWriter(abc.ABC):
         try:
             return self._task_ids[task_id]
         except KeyError:
-            compact_id = len(self._task_ids)
+            # 0 is reserved: it stands for no task (e.g. an unknown waiter).
+            compact_id = len(self._task_ids) + 1
             self._task_ids[task_id] = compact_id
             return compact_id
 
@@ -1260,51 +1374,88 @@ class BaseMojoStreamWriter(abc.ABC):
                 edges.setdefault(awaited.task_id, set()).add(task.task_id)
             self._collect_tasks(task.awaiting, seen, edges)
 
-    def write_tasks(self, tasks: t.Sequence[AustinTask]) -> int:
-        """Write every task's own coroutine-chain snapshot, then every waiter edge.
+    def write_tasks(self, sample: AustinSample) -> int:
+        """Write a sample's task reports, then the waiter edges that changed.
 
-        See _collect_tasks for why each is written exactly once, and edges
-        for one task_id are always written contiguously (required for
-        MojoStreamReader.get_task_waiter's own batch-replace logic to
-        reconstruct a multi-waiter task correctly).
+        Each report is written once, as it was read, without its elapsed time,
+        which readers work out from the samples. Reports that leave a task
+        where it was, like end-of-stream reports, aren't written: readers
+        produce those themselves. Waiter edges are written as the complete
+        waiter set of every task whose set differs from the last one written
+        for it, contiguously (required for MojoStreamReader.get_task_waiter's
+        own batch-replace logic to reconstruct a multi-waiter task correctly),
+        and an emptied set as a single edge to the reserved 0. See
+        _collect_tasks for why each task is considered exactly once.
+
+        A task in the sample's tree that the stream hasn't introduced yet
+        (e.g. a sample built by hand, with no reports) is introduced with a
+        report of its own, carrying no time: readers only learn of tasks from
+        reports.
         """
         size = 0
 
         seen: t.Dict[int, AustinTask] = {}
         edges: t.Dict[int, t.Set[int]] = {}
-        self._collect_tasks(tasks, seen, edges)
+        self._collect_tasks(sample.tasks, seen, edges)
 
-        for task in seen.values():
-            name_key = self.resolve_string(task.name).key if task.name else 0
+        reported = {r.task_id for r in sample.task_reports}
+        introductions = tuple(
+            AustinTaskReport(
+                task_id=task.task_id,
+                name=task.name,
+                frames=task.frames,
+                previous=None,
+                elapsed=0,
+            )
+            for task in seen.values()
+            if task.task_id not in self._written_tasks
+            and task.task_id not in reported
+            and task.frames
+        )
+
+        for report in sample.task_reports + introductions:
+            if report.frames and report.frames == report.previous:
+                continue
+
+            name_key = (
+                self.resolve_string(report.name).key
+                if report.name and report.frames
+                else 0
+            )
+            task_frames = [self.resolve_frame(f) for f in report.frames]
 
             while self._new_entries:
                 size += self.mojo.write(self._new_entries.pop(0).to_bytes())
 
             size += self.mojo.write(
                 MojoTaskStack(
-                    task_id=self.resolve_task_id(task.task_id), name_key=name_key
+                    task_id=self.resolve_task_id(report.task_id),
+                    name_key=name_key,
+                    frame_count=len(task_frames),
                 ).to_bytes()
             )
-
-            task_frames = [self.resolve_frame(f) for f in task.frames]
-
-            while self._new_entries:
-                size += self.mojo.write(self._new_entries.pop(0).to_bytes())
 
             for frame in task_frames:
                 size += self.mojo.write(MojoFrameReference(frame).to_bytes())
 
-            size += self.mojo.write(
-                MojoMetric(MojoMetricType.TIME, task.elapsed or 0).to_bytes()
-            )
+            if report.closing:
+                self._written_waiters.pop(report.task_id, None)
+                self._written_tasks.discard(report.task_id)
+            else:
+                self._written_tasks.add(report.task_id)
 
-        for task_id, waiter_ids in edges.items():
+        for task_id in seen:
+            waiter_ids = frozenset(edges.get(task_id, ()))
+            if waiter_ids == self._written_waiters.get(task_id, frozenset()):
+                continue
+            self._written_waiters[task_id] = waiter_ids
+
             compact_task_id = self.resolve_task_id(task_id)
-            for waiter_id in waiter_ids:
+            for waiter_id in waiter_ids or (0,):
                 size += self.mojo.write(
                     MojoTaskWaiter(
                         task_id=compact_task_id,
-                        waiter_id=self.resolve_task_id(waiter_id),
+                        waiter_id=self.resolve_task_id(waiter_id) if waiter_id else 0,
                     ).to_bytes()
                 )
 
@@ -1338,13 +1489,17 @@ class MojoStreamWriter(BaseMojoStreamWriter):
                 ).to_bytes()
             )
 
-            # Task-scan payload (waiter edges + suspended coroutine-chain
-            # snapshots) is written before this sample's own frames -- it
+            # Task-scan payload (task reports, then waiter edges) is written
+            # before this sample's own frames -- it
             # rides between the enclosing MOJO_STACK header and the sample's
             # own frame dump on the real wire too (see austin's own
             # py_proc.c, _py_proc__sample_threads).
-            if event.tasks:
-                size += self.write_tasks(event.tasks)
+            size += self.write_tasks(event)
+
+            if event.running_task is not None:
+                size += self.mojo.write(
+                    MojoTaskRunning(self.resolve_task_id(event.running_task)).to_bytes()
+                )
 
             frames = (
                 [self.resolve_frame(f) for f in event.frames] if event.frames else []

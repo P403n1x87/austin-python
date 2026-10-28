@@ -86,8 +86,7 @@ from austin.events import AustinSample
 from austin.events import AustinTask
 from austin.events import ProcessId
 from austin.events import ThreadName
-from austin.format.collapsed_stack import AustinFileReader
-from austin.format.mojo import MojoStreamReader
+from austin.format import open_profile
 from austin.stats import AustinStats
 from austin.stats import AustinStatsType
 from austin.stats import FrameStats
@@ -1024,15 +1023,8 @@ class ProfileQuery:
         cls, path: t.Union[str, Path], *, short_paths: bool = True
     ) -> "ProfileQuery":
         """Load a profile from a MOJO or a collapsed stack file."""
-        with open(path, "rb") as f:
-            is_mojo = f.read(3) == b"MOJ"
-
-        if is_mojo:
-            with open(path, "rb") as f:
-                return cls(MojoStreamReader(f), short_paths=short_paths)
-
-        with open(path) as f:
-            return cls(AustinFileReader(f), short_paths=short_paths)
+        with open_profile(path) as events:
+            return cls(events, short_paths=short_paths)
 
     @property
     def metrics(self) -> t.Tuple[AustinStatsType, ...]:

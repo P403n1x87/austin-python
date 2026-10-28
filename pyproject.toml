@@ -44,7 +44,6 @@ classifiers = [
 
 requires-python = ">=3.10"
 dependencies = [
-  "protobuf~=3.12",
   "psutil>=5.7.0",
   "toml~=0.10",
 ]
@@ -143,7 +142,6 @@ exclude = [
 
 [[tool.mypy.overrides]]
 module = [
-  "austin.format.pprof.profile_pb2",
   "austin.format.pprof",
 ]
 ignore_errors = true
@@ -152,8 +150,7 @@ ignore_errors = true
 target-version = ["py310", "py311", "py312", "py313", "py314"]
 extend-exclude = '''
 (
-  /profile_pb2\.py
-  | /test/data/column\.py
+  /test/data/column\.py
 )
 '''
 
@@ -161,7 +158,6 @@ extend-exclude = '''
 force_single_line = true
 lines_after_imports = -1
 skip = [
-  "austin/format/pprof/profile_pb2.py",
   "test/data/column.py",
 ]
 

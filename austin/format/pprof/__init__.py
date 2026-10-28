@@ -30,8 +30,13 @@ from typing import Union
 from austin.events import AustinFrame
 from austin.events import AustinSample
 from austin.format import Mode
-from austin.format.pprof.profile_pb2 import Profile
-from austin.format.pprof.profile_pb2 import Sample
+from austin.format.pprof.profile import Function
+from austin.format.pprof.profile import Label
+from austin.format.pprof.profile import Line
+from austin.format.pprof.profile import Location
+from austin.format.pprof.profile import Profile
+from austin.format.pprof.profile import Sample
+from austin.format.pprof.profile import ValueType
 
 PROCESS_ID_LABEL = "Process ID"
 THREAD_ID_LABEL = "Thread ID"
@@ -57,7 +62,7 @@ class PProf:
         self._location_map: Dict[AustinFrame, int] = {}
         self._function_map: Dict[Tuple[str, str], int] = {}
 
-        # Create the protobuf Profile message
+        # Create the Profile message
         self.profile = Profile()
         self.profile.string_table.append("")
 
@@ -80,9 +85,9 @@ class PProf:
             self._add_memory_sample_types()
 
     def _add_sample_type(self, type: str, unit: str) -> None:
-        _ = self.profile.sample_type.add()
-        _.type = self.get_string(type)
-        _.unit = self.get_string(unit)
+        self.profile.sample_type.append(
+            ValueType(type=self.get_string(type), unit=self.get_string(unit))
+        )
 
     def _add_time_sample_type(self, type: str) -> None:
         self._add_sample_type(type, TIME_UNIT)
@@ -106,9 +111,9 @@ class PProf:
 
         The ``key`` and ``value`` arguments are both converted to strings.
         """
-        _ = sample.label.add()
-        _.key = self.get_string(str(key))
-        _.str = self.get_string(str(value))
+        sample.label.append(
+            Label(key=self.get_string(str(key)), str=self.get_string(str(value)))
+        )
 
     def get_function(self, frame: AustinFrame) -> int:
         """Get the function id from the given Austin frame."""
@@ -116,10 +121,12 @@ class PProf:
         try:
             return self._function_map[key]
         except KeyError:
-            function = self.profile.function.add()
-            function.id = len(self.profile.function)
-            function.name = self.get_string(frame.function)
-            function.filename = self.get_string(frame.filename)
+            function = Function(
+                id=len(self.profile.function) + 1,
+                name=self.get_string(frame.function),
+                filename=self.get_string(frame.filename),
+            )
+            self.profile.function.append(function)
 
             self._function_map[key] = function.id
 
@@ -130,11 +137,11 @@ class PProf:
         try:
             return self._location_map[frame]
         except KeyError:
-            location = self.profile.location.add()
-            location.id = len(self.profile.location)
-            line = location.line.add()
-            line.function_id = self.get_function(frame)
-            line.line = frame.line
+            location = Location(
+                id=len(self.profile.location) + 1,
+                line=[Line(function_id=self.get_function(frame), line=frame.line)],
+            )
+            self.profile.location.append(location)
 
             self._location_map[frame] = location.id
 
@@ -143,7 +150,8 @@ class PProf:
     def add_sample(self, sample: AustinSample) -> None:
         """Add a sample to the pprof generator."""
         # Create new pprof sample
-        pprof_sample = self.profile.sample.add()
+        pprof_sample = Sample()
+        self.profile.sample.append(pprof_sample)
 
         # Add process and thread id labels
         self.add_label_to_sample(pprof_sample, THREAD_ID_LABEL, sample.thread)

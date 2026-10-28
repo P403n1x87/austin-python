@@ -443,6 +443,17 @@ class BaseMojoStreamReader(AustinEventIterator):
         self._task_edges: t.Set[t.Tuple[int, int]] = set()
         self._last_waiter_task_id: t.Optional[int] = None
 
+        # Converted frames, keyed by the ID of their MOJO frame (see
+        # _austin_frame).
+        self._austin_frames: t.Dict[int, t.Tuple[MojoFrame, AustinFrame]] = {}
+
+        # The task trees of each owner, as returned by get_tasks, until the
+        # task state changes. Samples far outnumber task state changes, so
+        # this saves rebuilding the same trees for every sample.
+        self._task_trees: t.Dict[
+            t.Tuple[ProcessId, ThreadName], t.Tuple[AustinTask, ...]
+        ] = {}
+
         # Austin events
         self.metadata: t.Dict[str, str] = {}
         self.samples: t.List[AustinSample] = []
@@ -530,6 +541,28 @@ class BaseMojoStreamReader(AustinEventIterator):
             info.pending = 0
         return reports
 
+    def _austin_frame(self, frame: MojoFrame) -> AustinFrame:
+        """Convert a MOJO frame, once.
+
+        The reader reuses the MOJO frame objects of repeated frames, so
+        samples share the converted frames too, which saves memory and makes
+        comparing stacks cheaper.
+        """
+        try:
+            return self._austin_frames[id(frame)][1]
+        except KeyError:
+            austin_frame = AustinFrame(
+                filename=frame.filename.value,
+                function=frame.scope.value,
+                line=frame.line,
+                line_end=frame.line_end,
+                column=frame.column,
+                column_end=frame.column_end,
+            )
+            # Keeping a reference to the MOJO frame keeps its ID unique.
+            self._austin_frames[id(frame)] = (frame, austin_frame)
+            return austin_frame
+
     def _finalize_sample(self, last: bool = False) -> AustinSample:
         """Finalize the current sample.
 
@@ -554,17 +587,7 @@ class BaseMojoStreamReader(AustinEventIterator):
                     }
                 ),
                 frames=(
-                    tuple(
-                        AustinFrame(
-                            filename=mf.filename.value,
-                            function=mf.scope.value,
-                            line=mf.line,
-                            line_end=mf.line_end,
-                            column=mf.column,
-                            column_end=mf.column_end,
-                        )
-                        for mf in self._running_sample.frames
-                    )
+                    tuple(map(self._austin_frame, self._running_sample.frames))
                     if self._running_sample.frames
                     else None
                 ),
@@ -683,10 +706,12 @@ class BaseMojoStreamReader(AustinEventIterator):
             # whatever we knew about this task_id's waiters before.
             self._task_edges = {e for e in self._task_edges if e[0] != task_id}
             self._last_waiter_task_id = task_id
+            self._task_trees.clear()
 
         # A waiter of 0 is no task: the task's waiter set is now empty.
         if waiter_id:
             self._task_edges.add((task_id, waiter_id))
+            self._task_trees.clear()
 
         return MojoTaskWaiter(task_id, waiter_id)
 
@@ -748,17 +773,7 @@ class BaseMojoStreamReader(AustinEventIterator):
         else:
             name = existing.name if existing is not None else None
 
-        frames = tuple(
-            AustinFrame(
-                filename=mf.filename.value,
-                function=mf.scope.value,
-                line=mf.line,
-                line_end=mf.line_end,
-                column=mf.column,
-                column_end=mf.column_end,
-            )
-            for mf in ts.frames
-        )
+        frames = tuple(map(self._austin_frame, ts.frames))
 
         self._running_sample.task_reports.append(
             AustinTaskReport(
@@ -769,6 +784,8 @@ class BaseMojoStreamReader(AustinEventIterator):
                 elapsed=elapsed,
             )
         )
+
+        self._task_trees.clear()
 
         if not frames:
             self._task_info.pop(ts.task_id, None)
@@ -795,21 +812,25 @@ class BaseMojoStreamReader(AustinEventIterator):
         C-side counterpart, this is a no-op (returns empty) when (pid,
         thread) owns no tasks, so callers can call it unconditionally.
         """
+        owner = (pid, thread)
+        try:
+            return self._task_trees[owner]
+        except KeyError:
+            pass
 
-        def has_parent(task_id: int) -> bool:
-            return any(
-                t_id == task_id and w_id in self._task_info
-                for t_id, w_id in self._task_edges
-            )
+        # Index the edges between known tasks once, rather than scanning them
+        # for every task.
+        awaited_by: t.Dict[int, t.List[int]] = {}
+        has_parent: t.Set[int] = set()
+        for awaited_id, waiter_id in self._task_edges:
+            if awaited_id in self._task_info and waiter_id in self._task_info:
+                awaited_by.setdefault(waiter_id, []).append(awaited_id)
+                has_parent.add(awaited_id)
 
         def build(task_id: int, depth: int) -> AustinTask:
             info = self._task_info[task_id]
             awaiting = (
-                tuple(
-                    build(awaited_id, depth + 1)
-                    for awaited_id, waiter_id in self._task_edges
-                    if waiter_id == task_id and awaited_id in self._task_info
-                )
+                tuple(build(_, depth + 1) for _ in awaited_by.get(task_id, ()))
                 if depth < MAX_TASK_TREE_DEPTH
                 else ()
             )
@@ -820,25 +841,17 @@ class BaseMojoStreamReader(AustinEventIterator):
                 awaiting=awaiting,
             )
 
-        owner = (pid, thread)
-        roots = [
-            task_id
-            for task_id, info in self._task_info.items()
-            if info.owner == owner and not has_parent(task_id)
+        owned = [
+            task_id for task_id, info in self._task_info.items() if info.owner == owner
         ]
+        # Best-effort fallback, matching austin's own render_tree: if every
+        # one of this owner's tasks appears to have a parent (a cyclic/bogus
+        # edge), there's no true root -- show each as its own top-level tree
+        # rather than silently showing nothing.
+        roots = [_ for _ in owned if _ not in has_parent] or owned
 
-        if not roots:
-            # Best-effort fallback, matching austin's own render_tree: if
-            # every one of this owner's tasks appears to have a parent (a
-            # cyclic/bogus edge), there's no true root -- show each as its
-            # own top-level tree rather than silently showing nothing.
-            roots = [
-                task_id
-                for task_id, info in self._task_info.items()
-                if info.owner == owner
-            ]
-
-        return tuple(build(task_id, 0) for task_id in roots)
+        trees = self._task_trees[owner] = tuple(build(_, 0) for _ in roots)
+        return trees
 
     def get_kernel_frame(self, name: str) -> MojoKernelFrame:
         """Parse kernel frame."""

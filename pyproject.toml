@@ -60,6 +60,7 @@ issues = "https://github.com/P403n1x87/austin-python/issues"
 [project.scripts]
 austin-compress = "austin.format.compress:main"
 austin-diff = "austin.tools.diff:main"
+austin-query = "austin.tools.query:main"
 austin2pprof = "austin.format.pprof.__main__:main"
 austin2speedscope = "austin.format.speedscope:main"
 mojo2austin = "austin.format.collapsed_stack:main"

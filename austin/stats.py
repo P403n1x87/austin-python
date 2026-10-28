@@ -30,6 +30,7 @@ from threading import Lock
 from typing import Any
 from typing import Dict
 from typing import Generator
+from typing import Iterable
 from typing import List
 from typing import Optional
 from typing import Tuple
@@ -55,6 +56,21 @@ class AustinStatsType(Enum):
     CPU = "cpu"
     MEMORY_ALLOC = "memory_alloc"
     MEMORY_DEALLOC = "memory_dealloc"
+
+
+def sample_metric(sample: AustinSample, stats_type: AustinStatsType) -> Optional[int]:
+    """Get the value of a sample for a stats type, if it has one."""
+    if stats_type is AustinStatsType.WALL:
+        return sample.metrics.time
+    if stats_type is AustinStatsType.CPU:
+        # In full mode, idle samples contribute wall time but no CPU time
+        return None if sample.idle else sample.metrics.time
+    memory = sample.metrics.memory
+    if memory is None:
+        return None
+    if stats_type is AustinStatsType.MEMORY_ALLOC:
+        return memory if memory > 0 else None
+    return -memory if memory < 0 else None
 
 
 @dataclass
@@ -273,39 +289,37 @@ class AustinStats:
         by using :func:`Sample.parse` on a sample string passed by Austin to
         the sample callback.
         """
-        if self.stats_type is AustinStatsType.WALL:
-            metric = sample.metrics.time
-        elif self.stats_type is AustinStatsType.CPU:
-            # In full mode, idle samples contribute wall time but no CPU time
-            metric = None if sample.idle else sample.metrics.time
-        elif (
-            self.stats_type is AustinStatsType.MEMORY_ALLOC
-            and sample.metrics.memory is not None
-            and sample.metrics.memory > 0
-        ):
-            metric = sample.metrics.memory
-        elif (
-            self.stats_type is AustinStatsType.MEMORY_DEALLOC
-            and sample.metrics.memory is not None
-            and sample.metrics.memory < 0
-        ):
-            metric = -sample.metrics.memory
-        else:
+        metric = sample_metric(sample, self.stats_type)
+        if not metric:
             return
 
-        if metric is None or metric == 0:
-            return
+        self.add_stack(
+            sample.pid, sample.iid, sample.thread, sample.frames or (), metric
+        )
 
-        pid = sample.pid
-        thread_info = ThreadInfo(sample.thread, sample.iid or 0)
-        thread_stats = ThreadStats(thread_info, own=0, total=metric, samples=1)
+    def add_stack(
+        self,
+        pid: ProcessId,
+        iid: Optional[int],
+        thread: str,
+        frames: Iterable[AustinFrame],
+        metric: int,
+        samples: int = 1,
+    ) -> None:
+        """Add the value of a stack, observed in the given number of samples.
+
+        Adding the total value of several identical samples at once is the
+        same as adding each of them, only faster.
+        """
+        thread_info = ThreadInfo(thread, iid or 0)
+        thread_stats = ThreadStats(thread_info, own=0, total=metric, samples=samples)
 
         # Convert the list of frames into a nested FrameStats instance
         stats: HierarchicalStats = thread_stats
         container = thread_stats.children
-        for height, frame in enumerate(sample.frames or []):
+        for height, frame in enumerate(frames):
             stats = FrameStats(
-                label=frame, height=height, own=0, total=metric, samples=1
+                label=frame, height=height, own=0, total=metric, samples=samples
             )
             container[frame] = stats
             container = stats.children

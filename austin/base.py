@@ -89,15 +89,16 @@ class BaseAustin(ABC):
 
     Defines the general API that abstract Austin as an external process.
     Subclasses should implement the :func:`start` and :func:`terminate` methods,
-    and either define the :func:`on_sample` method or pass it via the
-    constructor. Additionally, the :func:`on_metadata` :func:`on_terminate`
+    and either define the ``on_sample`` method or pass it via the
+    constructor. Additionally, the ``on_metadata`` and ``on_terminate``
     methods can be overridden or passed via the constructor to catch metadata
     and termination events respectively. Austin is considered to be ready when
     the first metadata event is received, and the `start` function returns, and
     it is considered to have terminated when the Austin process has terminated
     gracefully.
 
-    If an error was encountered, the :class:`AustinError` exception is thrown.
+    If an error was encountered, the :class:`~austin.errors.AustinError`
+    exception is thrown.
     """
 
     BINARY = Path("austin").with_suffix(_EXE_EXT)
@@ -187,6 +188,7 @@ class BaseAustin(ABC):
         """Discover the path of the Austin binary.
 
         Lookup order is:
+
         - current working directory
         - ``AUSTINPATH`` variable
         - ``~/.austinrc`` file

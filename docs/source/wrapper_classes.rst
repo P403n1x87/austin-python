@@ -31,6 +31,12 @@ The Abstract Austin Base Class
     :members:
     :undoc-members:
 
+.. autoclass:: austin.base.AustinState
+    :members:
+    :undoc-members:
+
+.. autoclass:: austin.errors.AustinError
+
 All the wrappers documented in this section are subclasses of the
 :class:`austin.base.BaseAustin` class. The purpose is to set a common base API while
 also providing some convenience methods that you are likely to need, so that
@@ -39,18 +45,20 @@ you don't have to implement them yourself.
 The ``start`` method
 ~~~~~~~~~~~~~~~~~~~~
 
-The general idea is to subclass :class:`austin.base.BaseAustin` and subclass the
+The general idea is to subclass :class:`austin.base.BaseAustin` and override the
 :func:`austin.base.BaseAustin.start` method with the logic required to start the
-Austin binary in the background. By default, Austin's binary is named
-``austin``, and you can refer to it with ``BaseAustin.BINARY``. Hence, if you
-were to start Austin in an asyncio fashion, your start method would be a
-coroutine starting with::
+Austin binary in the background. The path to the Austin binary is resolved by
+the :attr:`austin.base.BaseAustin.binary_path` property, and the wrappers start
+Austin with the ``-P`` option so that its output is in the binary MOJO format.
+Hence, if you were to start Austin in an asyncio fashion, your start method
+would be a coroutine starting with::
 
-    async def start(self, args: List[str] = []) -> None:
+    async def start(self, args: Optional[Sequence[str]] = None) -> None:
         try:
-            self.proc = await asyncio.create_subprocess_exec(
-                self.BINARY,
-                *(args or sys.argv[1:]),
+            self._proc = await asyncio.create_subprocess_exec(
+                self.binary_path,
+                "-P",
+                *(args if args is not None else sys.argv[1:]),
                 stdin=asyncio.subprocess.PIPE,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
@@ -62,24 +70,29 @@ You should use the optional ``args`` argument to pass in the command-line
 arguments to pass to the Austin binary, as done in the above example.
 
 .. note::
-    For the wrappers to work as expected, the Austin binary specified by the
-    ``BINARY`` class attribute needs to be on the ``PATH`` environment variable
-    or they will fail to start. Of course, this value can be overridden by
-    sub-classes so that this behaviour can be adjusted according to your needs.
+    By default, the Austin binary is looked up by the name given by the
+    ``BINARY`` class attribute in the locations listed at the top of this page.
+    Of course, this value can be overridden by sub-classes so that this
+    behaviour can be adjusted according to your needs.
 
 The callbacks
 ~~~~~~~~~~~~~
 
 The other requirement for making a subclass of :class:`austin.base.BaseAustin`
-concrete is the implementation of the ``on_sample_received`` callback. This
-can either be a class method, or passed via the ``sample_callback`` argument
-to the constructor of the subclass. This callback function must take a single
-argument of type ``str``, which holds the raw text of a sample collected by
-Austin.
+concrete is the implementation of the ``on_sample`` callback. This can either
+be a method of the subclass, or passed via the ``sample_callback`` argument to
+the constructor. This callback function must take a single argument of type
+:class:`austin.events.AustinSample`, which holds a sample collected by Austin
+(see :ref:`events`).
 
-There are other two recommended callbacks that you might want to implement:
-:func:`austin.base.BaseAustin.on_ready` and :func:`austin.base.BaseAustin.on_terminate`.
-See the class documentation below for more details.
+There are other two optional callbacks that you might want to implement:
+``on_metadata``, which takes a single argument of type
+:class:`austin.events.AustinMetadata` and is called for every metadata event
+emitted by Austin, and ``on_terminate``, which takes no arguments and is called
+once Austin has terminated. These can also be passed to the constructor via the
+``metadata_callback`` and ``terminate_callback`` arguments respectively. With
+the :class:`austin.aio.AsyncAustin` wrapper, all the callbacks must be
+coroutines.
 
 
 The Simple Austin Wrapper
@@ -93,9 +106,9 @@ The :class:`austin.simple.SimpleAustin` wrapper is for simple applications that
 do not require any sort of concurrency or (thread-based) parallelism. For
 example, your application does not involve a user interface or asynchronous I/O.
 
-The example above shows you how to make a simple echo Austin application that
-effectively acts like the underlying Austin binary. The ``on_sample_received``
-is indeed echoing back all the samples that it receives
+The example above shows you how to make a simple Austin application that
+prints all the metadata and samples that it receives in the collapsed stack
+format.
 
 
 The ``asyncio``-based Austin Wrapper
@@ -109,8 +122,8 @@ This wrapper implements an ``asyncio``-based API around Austin. The ``start``
 method is, in fact, a coroutine that can be schedule with any ``asyncio``
 event loops.
 
-The example above shows how to implement the same echo example of the simple
-case using this wrapper.
+The example above shows how to implement the same collapsed stack example of
+the simple case using this wrapper.
 
 
 The Thread-based Austin Wrapper
@@ -125,8 +138,8 @@ additional methods beside the base API of :class:`austin.base.BaseAustin` that a
 you to perform operations that are typical of thread-based applications, like
 joining a thread to ensure a proper termination of the application.
 
-The example above shows how to implement the same echo example of the simple
-case using this wrapper.
+The example above shows how to implement the same collapsed stack example of
+the simple case using this wrapper.
 
 
 .. _austinrc:

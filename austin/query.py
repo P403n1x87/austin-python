@@ -144,8 +144,10 @@ class Location:
 
 
 # Pseudo-locations
-ROOT = Location("", "<root>")  # The caller of the outermost frames
-SELF = Location("", "<self>")  # The own share of a function among its callees
+#: The caller of the outermost frames
+ROOT = Location("", "<root>")
+#: The own share of a function among its callees
+SELF = Location("", "<self>")
 ALL = Location("", "<all>")  # The root of a call tree over the whole profile
 
 Selector = t.Union[str, Location, AustinFrame, t.Callable[[AustinFrame], bool]]
@@ -964,7 +966,7 @@ class ProfileQuery:
     """Query an Austin profile.
 
     The profile is given as a stream of Austin events, e.g. from a
-    :class:`austin.format.mojo.MojoStreamReader`. Queries take an optional
+    ``austin.format.mojo.MojoStreamReader``. Queries take an optional
     ``metric``, which defaults to the metric of the profile mode, or wall time
     for full-mode profiles. Use :meth:`filter` to narrow a profile down before
     querying it. Percentages are relative to the total of the queried profile.

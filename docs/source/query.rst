@@ -163,7 +163,7 @@ The ``austin.query`` sub-module
 -------------------------------
 
 .. automodule:: austin.query
-    :members: ProfileQuery, Location, NoMatchError, matcher, task_matcher,
-        TopResult, TopEntry, StacksResult, Stack, Neighbours, Edge, CallTree,
-        CallNode, TasksResult, TaskNode, TaskStacksResult, TaskStack, Summary,
-        MetricSummary, ThreadSummary
+    :members: ProfileQuery, Location, NoMatchError, ROOT, SELF, matcher,
+        task_matcher, TopResult, TopEntry, StacksResult, Stack, Neighbours,
+        Edge, CallTree, CallNode, TasksResult, TaskNode, TaskStacksResult,
+        TaskStack, Summary, MetricSummary, ThreadSummary

@@ -27,6 +27,7 @@ from pathlib import Path
 from austin.events import AustinMetadata
 from austin.events import AustinSample
 from austin.format import open_profile
+from austin.format import stderr_progress
 from austin.format.pprof import PProf
 
 
@@ -56,7 +57,8 @@ def main() -> None:
     args = arg_parser.parse_args()
 
     try:
-        with open_profile(args.input) as fin:
+        progress = stderr_progress(f"Reading {args.input} ...")
+        with open_profile(args.input, progress) as fin:
             events = iter(fin)
             pprof = None
             for e in events:

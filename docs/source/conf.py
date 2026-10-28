@@ -12,6 +12,7 @@
 #
 import os
 import sys
+from importlib.metadata import version as _version
 
 
 sys.path.insert(0, os.path.abspath("../.."))
@@ -24,7 +25,9 @@ author = "Gabriele N. Tornetta"
 copyright = f"2020, {author}"
 
 # The full version, including alpha/beta/rc tags
-release = "0.1.0"
+release = _version("austin-python")
+# The short X.Y version
+version = ".".join(release.split(".")[:2])
 
 
 # -- General configuration ---------------------------------------------------
@@ -32,7 +35,14 @@ release = "0.1.0"
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["sphinx.ext.autodoc", "sphinx.ext.napoleon", "sphinx_autodoc_typehints"]
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.intersphinx",
+    "sphinx.ext.napoleon",
+    "sphinx_autodoc_typehints",
+]
+
+intersphinx_mapping = {"python": ("https://docs.python.org/3", None)}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ["_templates"]
@@ -64,7 +74,6 @@ html_theme_options = {
     "github_button": True,
     "github_type": "star",
     "codecov_button": True,
-    "travis_button": True,
     "donate_url": "https://github.com/sponsors/P403n1x87",
     "fixed_sidebar": True,
 }

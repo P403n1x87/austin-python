@@ -21,3 +21,9 @@ The ``austin.cli.AustinArgumentParser`` class
 .. autoclass:: austin.cli.AustinArgumentParser
     :members:
     :show-inheritance:
+
+.. autoclass:: austin.cli.AustinArguments
+    :show-inheritance:
+
+.. autoclass:: austin.cli.AustinCommandLineError
+    :show-inheritance:

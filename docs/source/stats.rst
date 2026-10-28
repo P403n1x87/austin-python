@@ -10,62 +10,55 @@ Austin.
 Overview
 --------
 
-Raw samples collected by Austin can be parsed into its many components with the
-:func:`austin.stats.Sample.parse` static method, which returns a
-:class:`austin.stats.Sample` object. This is a data class with fields such as
-``pid``, ``thread``, ``metrics`` and ``frames``, representing the different
-parts of an Austin sample.
+The wrapper classes pass the samples collected by Austin to the sample callback
+as :class:`austin.events.AustinSample` objects (see :ref:`events`). You can use
+:class:`austin.stats.AustinStats` objects to aggregate the profiling metrics
+they carry, like own and total time, by passing them to the
+:func:`austin.stats.AustinStats.update` method. Each
+:class:`austin.stats.AustinStats` object aggregates a single kind of metric,
+given by its :class:`austin.stats.AustinStatsType`: wall-clock time, CPU time,
+allocated memory or deallocated memory. The following is a simple example of an
+``on_sample`` callback implemented on an Austin wrapper object that passes the
+incoming samples to an :class:`austin.stats.AustinStats` object for
+aggregation::
 
-You can use :class:`austin.stats.AustinStats` objects to aggregate profiling
-metrics, like own and total time, by providing it with
-:class:`austin.stats.Sample` objects via the
-:func:`austin.stats.AustinStats.update` method. The following is a simple
-example of a ``on_sample_received`` callback implemented on an Austin wrapper
-object that parses the incoming samples and pass them to an
-:class:`austin.stats.AustinStats` for aggregation::
-
-  from datetime import timedelta as td
-
+  from austin.events import AustinSample
   from austin.simple import SimpleAustin
-  from austin.stats import AustinStats, InvalidSample, Sample
+  from austin.stats import AustinStats
+  from austin.stats import AustinStatsType
 
 
   class MySimpleAustin(SimpleAustin):
       def __init__(self, *args, **kwargs):
           super().__init__(*args, **kwargs)
 
-          self._stats = AustinStats()
-          self._sample_count = 0
-          self._error_count = 0
+          self._stats = AustinStats(AustinStatsType.WALL)
 
-      def on_sample_received(self, text):
-          try:
-              self._stats.update(Sample.parse(text))
-              self._sample_count += 1
-          except InvalidSample:
-              self._error_count += 1
+      def on_sample(self, sample: AustinSample) -> None:
+          self._stats.update(sample)
 
-      def on_terminate(self, *args, **kwargs):
-
-          def print_frames(framestats):
-              print("    {own: >16}  {total: >16}  {frame}".format(
-                  own=str(td(seconds=framestats.own.time/1e6)),
-                  total=str(td(seconds=framestats.total.time/1e6)),
-                  frame=framestats.label
-              ))
-              for _, child in framestats.children.items():
-                  print_frames(child)
+      def on_terminate(self) -> None:
+          def print_frames(framestats, depth=0):
+              frame = framestats.label
+              print(
+                  f"  {framestats.own:>12}  {framestats.total:>12}  "
+                  f"{'  ' * depth}{frame.function} ({frame.filename}:{frame.line})"
+              )
+              for child in framestats.children.values():
+                  print_frames(child, depth + 1)
 
           for pid, process in self._stats.processes.items():
-              print(f"Process {pid or self.proc.pid}")
-              for tid, thread in process.threads.items():
-                  print(f"  {tid}")
-                  print(f"    {'OWN':^16}  {'TOTAL':^16}  {'FRAME'}")
-                  for _, framestats in thread.children.items():
+              print(f"Process {pid}")
+              for thread_info, thread in process.threads.items():
+                  print(f"Thread {thread_info.thread}")
+                  print(f"  {'OWN (us)':>12}  {'TOTAL (us)':>12}  FRAME")
+                  for framestats in thread.children.values():
                       print_frames(framestats)
 
 
-  MySimpleAustin().start(["python3", "-c", "for _ in range(10000): print(_)"])
+  austin = MySimpleAustin()
+  austin.start(["python3", "-c", "for _ in range(100000): print(_)"])
+  austin.wait()
 
 
 You can then collect the aggregated figures from the
@@ -73,17 +66,21 @@ You can then collect the aggregated figures from the
 that have been profiled. You start by selecting or looping over the observed
 processes via the ``processes`` dictionary. This maps PIDs to
 :class:`austin.stats.ProcessStats` objects holding the process statistics.
-Each :class:`austin.stats.ProcessStats` object has a dictionary `threads` of
-all the observed threads within that process. This maps thread names to
-:class:`austin.stats.ThreadStats` objects. The ``label`` attribute is just the
-thread name, while the frame stack can be navigated using the ``children``
-attribute. This maps :class:`austin.stats.Frame` objects to
+Each :class:`austin.stats.ProcessStats` object has a dictionary ``threads`` of
+all the observed threads within that process. This maps ``ThreadInfo`` named
+tuples, made of the thread name and the sub-interpreter ID, to
+:class:`austin.stats.ThreadStats` objects. The ``label`` attribute is the
+``ThreadInfo`` of the thread, while the frame stack can be navigated using the
+``children`` attribute. This maps :class:`austin.events.AustinFrame` objects to
 :class:`austin.stats.FrameStats` objects holding the aggregated statistics of
-each observed frame within the thread.
+each observed frame within the thread. The ``own`` and ``total`` attributes are
+in microseconds for time statistics and in bytes for memory statistics.
 
-The example above shows you how to use the
-:func:`austin.base.BaseAustin.on_terminate` callback to navigate the collected
-statistics and print a simple report once Austin has terminated.
+The example above shows you how to use the ``on_terminate`` callback to navigate
+the collected statistics and print a simple report once Austin has terminated.
+
+If you have the output of a previous run of Austin, you can also use
+:func:`austin.stats.AustinStats.load` to aggregate all of its samples in one go.
 
 
 The ``austin.stats`` sub-module

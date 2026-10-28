@@ -53,10 +53,16 @@ a thread-based or an asyncio-based interface, depending on your preference. The
 section on :ref:`wrapper_classes` provides more details as well as some basic
 examples on how to use each of them.
 
+If you want to look into a profile collected by Austin, the
+:class:`austin.query.ProfileQuery` class can answer the most common questions
+about it, like which functions are the hottest or who calls a given function.
+The same queries are also available from the command line with the
+``austin-query`` tool. See :ref:`query` for more details.
+
 To assist you with the development of command-line tools that leverage the
 profiling capabilities of Austin, the package also provides the ``austin.cli``
-sub-module. There you can find the :class:`austin.cli.AustinArgumentParser``,
-which is a sub-class of ``argparse.ArgumentParser``. If you want to customise
+sub-module. There you can find the :class:`austin.cli.AustinArgumentParser`,
+which is a sub-class of :class:`argparse.ArgumentParser`. If you want to customise
 it to meet your needs, simply sub-class it and tweak it as discused in
 :ref:`cli`.
 
@@ -76,6 +82,7 @@ details).
    :caption: Contents:
 
    wrapper_classes
+   events
    stats
    query
    cli

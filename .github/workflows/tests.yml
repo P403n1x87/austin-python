@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - main
+    paths: &paths
+      - "austin/**"
+      - "test/**"
+      - "pyproject.toml"
+      - ".github/workflows/tests.yml"
   pull_request:
+    paths: *paths
 
 concurrency: 
   group: ${{ github.head_ref || github.run_id }}

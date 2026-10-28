@@ -156,6 +156,39 @@ austin2pprof myscript.aprof myscript.pprof
 The package also provide the `austin-compress` utility to compress the Austin
 raw samples by aggregation.
 
+## Querying profiles
+
+The `austin.query` module provides the `ProfileQuery` class to answer the most
+common questions about a profile, like which functions are the hottest, what the
+sampled stacks are, or who calls a given function:
+
+~~~ python
+from austin.query import ProfileQuery
+
+q = ProfileQuery.from_file("myscript.mojo")
+
+print(q.top(10))                       # hottest functions
+print(q.callers("db.py:execute"))      # who calls execute
+print(q.filter(thread="main").tree())  # call tree of the main thread
+~~~
+
+Every result renders as a text table when printed, and can be converted to
+JSON-ready data with `to_dict()`. For asyncio profiles (Python 3.14+),
+`q.tasks()` shows the task trees, `q.task_stacks("worker-0")` where a task was
+running and awaiting, and `q.filter(task="worker-0")` narrows any query down to
+the samples in which a task was running.
+
+The same queries are available from the command line with `austin-query`:
+
+~~~ console
+austin-query myscript.mojo top -n 10
+austin-query myscript.mojo callers db.py:execute --thread main
+austin-query myscript.mojo tasks --json
+austin-query myscript.mojo task-stacks worker-0  # where a task ran and awaited
+~~~
+
+Run `austin-query --help` for the selector syntax and a suggested workflow.
+
 # Compatibility
 
 The latest `austin-python` package is tested on Linux, macOS and Windows with

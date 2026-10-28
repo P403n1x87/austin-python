@@ -77,6 +77,7 @@ details).
 
    wrapper_classes
    stats
+   query
    cli
 
 

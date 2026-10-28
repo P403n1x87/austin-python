@@ -145,12 +145,14 @@ applications to see how they leverage `austin-python`.
 
 As it was mentioned before, this package also comes with two scripts for format
 conversion, namely `austin2speedscope` and `austin2pprof`. They both take two
-mandatory arguments, that is, the input and output file. For example, to convert
-the Austin profile data file `myscript.aprof` to the Google pprof data file
+mandatory arguments, that is, the input and output file. The input file can be
+either in the MOJO binary format (the default output of Austin 4) or in the
+collapsed stack format, and is detected automatically. For example, to convert
+the Austin profile data file `myscript.mojo` to the Google pprof data file
 `myscript.pprof`, you can run
 
 ~~~ bash
-austin2pprof myscript.aprof myscript.pprof
+austin2pprof myscript.mojo myscript.pprof
 ~~~
 
 The package also provide the `austin-compress` utility to compress the Austin

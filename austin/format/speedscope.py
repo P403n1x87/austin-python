@@ -37,7 +37,7 @@ from austin.events import AustinFrame
 from austin.events import AustinMetadata
 from austin.events import AustinSample
 from austin.format import Mode
-from austin.format.collapsed_stack import AustinFileReader
+from austin.format import open_profile
 
 __version__ = "0.3.1"
 
@@ -209,7 +209,7 @@ def main() -> None:
     arg_parser.add_argument(
         "input",
         type=Path,
-        help="The input file containing Austin samples in normal format.",
+        help="The input MOJO or collapsed stack file containing Austin samples.",
     )
     arg_parser.add_argument(
         "output", type=Path, help="The name of the output Speedscope JSON file."
@@ -223,7 +223,7 @@ def main() -> None:
     args = arg_parser.parse_args()
 
     try:
-        with args.input.open() as austin, AustinFileReader(austin) as fin:
+        with open_profile(args.input) as fin:
             speedscope = None
             for event in fin:
                 if isinstance(event, AustinMetadata):

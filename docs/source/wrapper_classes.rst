@@ -9,7 +9,7 @@ implement a few callbacks or overrides some methods in your subclasses to
 interact with the Austin binary.
 
 If you want to make your own implementation of the wrapper, the
-:class:`austin.BaseAustin` abstract base class can provide you with a good
+:class:`austin.base.BaseAustin` abstract base class can provide you with a good
 starting point.
 
 .. note::
@@ -27,20 +27,20 @@ starting point.
 The Abstract Austin Base Class
 ------------------------------
 
-.. autoclass:: austin.BaseAustin
+.. autoclass:: austin.base.BaseAustin
     :members:
     :undoc-members:
 
 All the wrappers documented in this section are subclasses of the
-:class:`austin.BaseAustin` class. The purpose is to set a common base API while
+:class:`austin.base.BaseAustin` class. The purpose is to set a common base API while
 also providing some convenience methods that you are likely to need, so that
 you don't have to implement them yourself.
 
 The ``start`` method
 ~~~~~~~~~~~~~~~~~~~~
 
-The general idea is to subclass :class:`austin.BaseAustin` and subclass the
-:func:`austin.BaseAustin.start` method with the logic required to start the
+The general idea is to subclass :class:`austin.base.BaseAustin` and subclass the
+:func:`austin.base.BaseAustin.start` method with the logic required to start the
 Austin binary in the background. By default, Austin's binary is named
 ``austin``, and you can refer to it with ``BaseAustin.BINARY``. Hence, if you
 were to start Austin in an asyncio fashion, your start method would be a
@@ -70,7 +70,7 @@ arguments to pass to the Austin binary, as done in the above example.
 The callbacks
 ~~~~~~~~~~~~~
 
-The other requirement for making a subclass of :class:`austin.BaseAustin`
+The other requirement for making a subclass of :class:`austin.base.BaseAustin`
 concrete is the implementation of the ``on_sample_received`` callback. This
 can either be a class method, or passed via the ``sample_callback`` argument
 to the constructor of the subclass. This callback function must take a single
@@ -78,7 +78,7 @@ argument of type ``str``, which holds the raw text of a sample collected by
 Austin.
 
 There are other two recommended callbacks that you might want to implement:
-:func:`austin.BaseAustin.on_ready` and :func:`austin.BaseAustin.on_terminate`.
+:func:`austin.base.BaseAustin.on_ready` and :func:`austin.base.BaseAustin.on_terminate`.
 See the class documentation below for more details.
 
 
@@ -121,7 +121,7 @@ The Thread-based Austin Wrapper
     :show-inheritance:
 
 This wrapper implements an thread-based API around Austin. This class offers
-additional methods beside the base API of :class:`austin.BaseAustin` that allow
+additional methods beside the base API of :class:`austin.base.BaseAustin` that allow
 you to perform operations that are typical of thread-based applications, like
 joining a thread to ensure a proper termination of the application.
 

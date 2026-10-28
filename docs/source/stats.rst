@@ -82,7 +82,7 @@ attribute. This maps :class:`austin.stats.Frame` objects to
 each observed frame within the thread.
 
 The example above shows you how to use the
-:func:`austin.BaseAustin.on_terminate` callback to navigate the collected
+:func:`austin.base.BaseAustin.on_terminate` callback to navigate the collected
 statistics and print a simple report once Austin has terminated.
 
 

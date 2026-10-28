@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - main
+    paths: &paths
+      - "austin/**"
+      - "test/**"
+      - "pyproject.toml"
+      - ".github/workflows/checks.yml"
   pull_request:
+    paths: *paths
 
 jobs:
   typing:

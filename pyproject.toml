@@ -35,14 +35,14 @@ classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
 ]
 
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
   "psutil>=5.7.0",
   "toml~=0.10",
@@ -78,7 +78,7 @@ dependencies = [
 tests = "pytest --cov=austin --cov-report=term-missing --cov-report=xml {args}"
 
 [[tool.hatch.envs.tests.matrix]]
-python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
+python = ["3.11", "3.12", "3.13", "3.14", "3.15"]
 
 [tool.hatch.envs.checks]
 python = "3.13"
@@ -100,7 +100,7 @@ typing = "mypy --show-error-codes --install-types --non-interactive {args} austi
 linting = "flake8 {args} austin/ test/ "
 
 [tool.hatch.envs.coverage]
-python = "3.10"
+python = "3.11"
 template = "coverage"
 dependencies = [
   "coverage[toml]",
@@ -147,7 +147,7 @@ module = [
 ignore_errors = true
 
 [tool.black]
-target-version = ["py310", "py311", "py312", "py313", "py314"]
+target-version = ["py311", "py312", "py313", "py314", "py315"]
 extend-exclude = '''
 (
   /test/data/column\.py

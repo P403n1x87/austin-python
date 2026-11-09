@@ -64,7 +64,7 @@ def main() -> None:
 
     argp.add_argument("input", type=Path, help="The MOJO file to debug.")
     argp.add_argument(
-        "-e", "echo", action="store_true", help="Echo all the MOJO events"
+        "-e", "--echo", action="store_true", help="Echo all the MOJO events"
     )
     argp.add_argument("-V", "--version", action="version", version=__version__)
 

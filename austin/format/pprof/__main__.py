@@ -26,7 +26,8 @@ from pathlib import Path
 
 from austin.events import AustinMetadata
 from austin.events import AustinSample
-from austin.format.collapsed_stack import AustinFileReader
+from austin.format import open_profile
+from austin.format import stderr_progress
 from austin.format.pprof import PProf
 
 
@@ -43,7 +44,7 @@ def main() -> None:
     arg_parser.add_argument(
         "input",
         type=Path,
-        help="The input file containing Austin samples.",
+        help="The input MOJO or collapsed stack file containing Austin samples.",
     )
     arg_parser.add_argument(
         "output",
@@ -56,9 +57,11 @@ def main() -> None:
     args = arg_parser.parse_args()
 
     try:
-        with args.input.open() as austin, AustinFileReader(austin) as fin:
+        progress = stderr_progress(f"Reading {args.input} ...")
+        with open_profile(args.input, progress) as fin:
+            events = iter(fin)
             pprof = None
-            for e in fin:
+            for e in events:
                 if isinstance(e, AustinMetadata) and e.name == "mode":
                     pprof = PProf(mode=e.value)
                     break
@@ -68,7 +71,7 @@ def main() -> None:
             assert pprof is not None
 
             # Read samples
-            for e in fin:
+            for e in events:
                 if isinstance(e, AustinSample):
                     pprof.add_sample(e)
 

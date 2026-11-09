@@ -22,7 +22,11 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 import io
 from dataclasses import fields
+import json
 from pathlib import Path
+import sys
+
+import pytest
 
 from austin.events import AustinMetadata
 from austin.events import AustinSample
@@ -31,6 +35,7 @@ from austin.format.collapsed_stack import parse_collapsed_stack
 from austin.format.speedscope import Speedscope
 from austin.format.speedscope import SpeedscopeFrame
 from austin.format.speedscope import SpeedscopeProfile
+from austin.format.speedscope import main
 
 _SPEEDSCOPE_FILE_FIELDS = ("$schema", "shared", "profiles", "name", "exporter")
 _SPEEDSCOPE_SCHEMA_URL = "https://www.speedscope.app/file-format-schema.json"
@@ -231,3 +236,19 @@ def test_speedscope_wall_metrics_only(datapath: Path):
 
         with open(datapath / "austin.json", "r") as sprof:
             assert text_stream.getvalue() == sprof.read()
+
+
+@pytest.mark.parametrize("name", ["test.mojo", "test.austin"])
+def test_speedscope_main(datapath: Path, tmp_path: Path, monkeypatch, name):
+    # Austin 4 emits MOJO by default, so the converter must accept both formats
+    output = tmp_path / "test.json"
+    monkeypatch.setattr(
+        sys, "argv", ["austin2speedscope", str(datapath / name), str(output)]
+    )
+
+    main()
+
+    data = json.loads(output.read_text())
+    assert data["$schema"] == _SPEEDSCOPE_SCHEMA_URL
+    assert data["shared"]["frames"]
+    assert all(p["samples"] for p in data["profiles"])

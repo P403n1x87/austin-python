@@ -25,6 +25,7 @@ import io
 from copy import deepcopy
 
 from austin.events import AustinFrame
+from austin.events import AustinMetadata
 from austin.events import AustinMetrics
 from austin.events import AustinSample
 from austin.format.collapsed_stack import AustinFileReader
@@ -57,6 +58,7 @@ def test_austin_stats_single_process():
                         label=ThreadInfo("0x7f45645646", 0),
                         own=0,
                         total=152,
+                        samples=1,
                         children={
                             AustinFrame(
                                 function="foo", filename="foo_module.py", line=10
@@ -66,6 +68,7 @@ def test_austin_stats_single_process():
                                 ),
                                 own=152,
                                 total=152,
+                                samples=1,
                             )
                         },
                     )
@@ -84,6 +87,7 @@ def test_austin_stats_single_process():
                     ThreadInfo("0x7f45645646", 0): ThreadStats(
                         label=ThreadInfo("0x7f45645646", 0),
                         total=300,
+                        samples=2,
                         own=148,
                         children={
                             AustinFrame(
@@ -94,6 +98,7 @@ def test_austin_stats_single_process():
                                 ),
                                 own=152,
                                 total=152,
+                                samples=1,
                             )
                         },
                     )
@@ -112,6 +117,7 @@ def test_austin_stats_single_process():
                     ThreadInfo("0x7f45645646", 0): ThreadStats(
                         label=ThreadInfo("0x7f45645646", 0),
                         total=400,
+                        samples=3,
                         own=148,
                         children={
                             AustinFrame(
@@ -122,6 +128,7 @@ def test_austin_stats_single_process():
                                 ),
                                 own=252,
                                 total=252,
+                                samples=2,
                             )
                         },
                     )
@@ -140,6 +147,7 @@ def test_austin_stats_single_process():
                     ThreadInfo("0x7f45645646", 0): ThreadStats(
                         label=ThreadInfo("0x7f45645646", 0),
                         total=800,
+                        samples=4,
                         own=148,
                         children={
                             AustinFrame(
@@ -150,6 +158,7 @@ def test_austin_stats_single_process():
                                 ),
                                 own=252,
                                 total=252,
+                                samples=2,
                             ),
                             AustinFrame(
                                 function="bar", filename="foo_module.py", line=35
@@ -159,6 +168,7 @@ def test_austin_stats_single_process():
                                 ),
                                 own=400,
                                 total=400,
+                                samples=1,
                             ),
                         },
                     )
@@ -178,6 +188,7 @@ def test_austin_stats_single_process():
                         label=ThreadInfo("0x7f45645664", 0),
                         own=0,
                         total=152,
+                        samples=1,
                         children={
                             AustinFrame(
                                 function="foo", filename="foo_module.py", line=10
@@ -187,12 +198,14 @@ def test_austin_stats_single_process():
                                 ),
                                 own=152,
                                 total=152,
+                                samples=1,
                             )
                         },
                     ),
                     ThreadInfo("0x7f45645646", 0): ThreadStats(
                         label=ThreadInfo("0x7f45645646", 0),
                         total=800,
+                        samples=4,
                         own=148,
                         children={
                             AustinFrame(
@@ -203,6 +216,7 @@ def test_austin_stats_single_process():
                                 ),
                                 own=252,
                                 total=252,
+                                samples=2,
                             ),
                             AustinFrame(
                                 function="bar", filename="foo_module.py", line=35
@@ -212,6 +226,7 @@ def test_austin_stats_single_process():
                                 ),
                                 own=400,
                                 total=400,
+                                samples=1,
                             ),
                         },
                     ),
@@ -305,6 +320,7 @@ def test_load():
                         label=ThreadInfo("0x7f45645646", 0),
                         own=0,
                         total=1300,
+                        samples=2,
                         children={
                             AustinFrame(
                                 function="foo", filename="foo_module.py", line=10
@@ -314,6 +330,7 @@ def test_load():
                                 ),
                                 own=300,
                                 total=1300,
+                                samples=2,
                                 children={
                                     AustinFrame(
                                         function="bar",
@@ -327,6 +344,7 @@ def test_load():
                                         ),
                                         own=1000,
                                         total=1000,
+                                        samples=1,
                                         children={},
                                         height=1,
                                     )
@@ -348,3 +366,39 @@ def test_deepcopy():
     cloned_stats = deepcopy(stats)
     assert cloned_stats == stats
     assert cloned_stats is not stats
+
+
+def test_load_full_mode_cpu_excludes_idle():
+    frames = (AustinFrame("foo_module.py", "foo", 10),)
+    stats = AustinStats.load(
+        iter(
+            [
+                AustinMetadata("mode", "full"),
+                AustinSample(
+                    pid=42,
+                    iid=0,
+                    thread="0x7f45645646",
+                    metrics=AustinMetrics(time=100, memory=10),
+                    frames=frames,
+                    idle=False,
+                ),
+                AustinSample(
+                    pid=42,
+                    iid=0,
+                    thread="0x7f45645646",
+                    metrics=AustinMetrics(time=900, memory=-5),
+                    frames=frames,
+                    idle=True,
+                ),
+            ]
+        )
+    )
+
+    def total(stats_type: AustinStatsType) -> int:
+        thread_info = ThreadInfo("0x7f45645646", 0)
+        return stats[stats_type].processes[42].threads[thread_info].total
+
+    assert total(AustinStatsType.CPU) == 100
+    assert total(AustinStatsType.WALL) == 1000
+    assert total(AustinStatsType.MEMORY_ALLOC) == 10
+    assert total(AustinStatsType.MEMORY_DEALLOC) == 5

@@ -60,7 +60,7 @@ class TestAsyncAustin(AsyncAustin):
     async def on_terminate(self):
         data = self._meta
         assert "duration" in data
-        if sysconfig.get_config_var("Py_GIL_DISABLED") is False:
+        if not sysconfig.get_config_var("Py_GIL_DISABLED"):
             assert "errors" in data
             assert "sampling" in data
             assert "saturation" in data
@@ -68,7 +68,7 @@ class TestAsyncAustin(AsyncAustin):
 
     def assert_callbacks_called(self):
         assert self._metadata
-        if sysconfig.get_config_var("Py_GIL_DISABLED") is False:
+        if not sysconfig.get_config_var("Py_GIL_DISABLED"):
             assert self._sample_received
         assert self._terminate
 

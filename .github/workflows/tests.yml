@@ -53,6 +53,11 @@ jobs:
           addr2line -V
           pip install hatch
 
+      - name: Check interpreter
+        run: |
+          cd $GITHUB_WORKSPACE/main
+          hatch -e "tests.py${{ matrix.python-version }}" run python -c "import sys, sysconfig; print(sys.version); gil = not sysconfig.get_config_var('Py_GIL_DISABLED'); assert gil != '${{ matrix.python-version }}'.endswith('t'), 'GIL mismatch'; print('GIL enabled:', gil)"
+
       - name: Run tests
         timeout-minutes: 10
         run: |
@@ -107,6 +112,11 @@ jobs:
         run: |
           pip install hatch
 
+      - name: Check interpreter
+        run: |
+          cd $GITHUB_WORKSPACE/main
+          sudo hatch -e "tests.py${{ matrix.python-version }}" run python -c "import sys, sysconfig; print(sys.version); gil = not sysconfig.get_config_var('Py_GIL_DISABLED'); assert gil != '${{ matrix.python-version }}'.endswith('t'), 'GIL mismatch'; print('GIL enabled:', gil)"
+
       - name: Run tests
         timeout-minutes: 10
         run: |
@@ -146,6 +156,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install hatch
+
+      - name: Check interpreter
+        run: |
+          cd $env:GITHUB_WORKSPACE/main
+          hatch -e "tests.py${{ matrix.python-version }}" run python -c "import sys, sysconfig; print(sys.version); gil = not sysconfig.get_config_var('Py_GIL_DISABLED'); assert gil != '${{ matrix.python-version }}'.endswith('t'), 'GIL mismatch'; print('GIL enabled:', gil)"
 
       - name: Run tests
         timeout-minutes: 10

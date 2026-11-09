@@ -22,17 +22,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15", "3.14t", "3.15t"]
 
     name: Tests with Python ${{ matrix.python-version }} on Linux
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           path: main
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}-dev
+          python-version: ${{ matrix.python-version }}
 
       - name: Checkout Austin development branch
         uses: actions/checkout@master
@@ -52,6 +52,11 @@ jobs:
           sudo apt-get install -y binutils binutils-common
           addr2line -V
           pip install hatch
+
+      - name: Check interpreter
+        run: |
+          cd $GITHUB_WORKSPACE/main
+          hatch -e "tests.py${{ matrix.python-version }}" run python -c "import sys, sysconfig; print(sys.version); gil = not sysconfig.get_config_var('Py_GIL_DISABLED'); assert gil != '${{ matrix.python-version }}'.endswith('t'), 'GIL mismatch'; print('GIL enabled:', gil)"
 
       - name: Run tests
         timeout-minutes: 10
@@ -74,17 +79,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15", "3.14t", "3.15t"]
 
     name: Tests with Python ${{ matrix.python-version }} on MacOS
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           path: main
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}-dev
+          python-version: ${{ matrix.python-version }}
 
       - name: Checkout Austin development branch
         uses: actions/checkout@master
@@ -107,6 +112,11 @@ jobs:
         run: |
           pip install hatch
 
+      - name: Check interpreter
+        run: |
+          cd $GITHUB_WORKSPACE/main
+          sudo hatch -e "tests.py${{ matrix.python-version }}" run python -c "import sys, sysconfig; print(sys.version); gil = not sysconfig.get_config_var('Py_GIL_DISABLED'); assert gil != '${{ matrix.python-version }}'.endswith('t'), 'GIL mismatch'; print('GIL enabled:', gil)"
+
       - name: Run tests
         timeout-minutes: 10
         run: |
@@ -119,17 +129,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15"]
+        python-version: ["3.11", "3.12", "3.13", "3.14", "3.15", "3.14t", "3.15t"]
 
     name: Tests with Python ${{ matrix.python-version }} on Windows
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v6
         with:
           path: main
 
-      - uses: actions/setup-python@v4
+      - uses: actions/setup-python@v6
         with:
-          python-version: ${{ matrix.python-version }}-dev
+          python-version: ${{ matrix.python-version }}
 
       - name: Checkout Austin development branch
         uses: actions/checkout@master
@@ -146,6 +156,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install hatch
+
+      - name: Check interpreter
+        run: |
+          cd $env:GITHUB_WORKSPACE/main
+          hatch -e "tests.py${{ matrix.python-version }}" run python -c "import sys, sysconfig; print(sys.version); gil = not sysconfig.get_config_var('Py_GIL_DISABLED'); assert gil != '${{ matrix.python-version }}'.endswith('t'), 'GIL mismatch'; print('GIL enabled:', gil)"
 
       - name: Run tests
         timeout-minutes: 10

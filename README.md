@@ -194,7 +194,7 @@ Run `austin-query --help` for the selector syntax and a suggested workflow.
 # Compatibility
 
 The latest `austin-python` package is tested on Linux, macOS and Windows with
-Python 3.9-3.14.
+Python 3.11-3.15.
 
 
 # Documentation
